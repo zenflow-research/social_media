@@ -1,0 +1,379 @@
+import logging
+from datetime import datetime
+
+from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+
+from app.database import get_db
+from app.scrapers import SCRAPERS
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+templates = Jinja2Templates(directory="app/templates")
+
+
+# ── HTML Dashboard ──────────────────────────────────────────────────
+
+@router.get("/", response_class=HTMLResponse)
+async def dashboard(request: Request):
+    return templates.TemplateResponse("dashboard.html", {"request": request})
+
+
+# ── REST API ────────────────────────────────────────────────────────
+
+@router.get("/api/articles")
+async def list_articles(
+    source: str = "",
+    tag: str = "",
+    q: str = "",
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+):
+    db = get_db()
+    query_filter: dict = {}
+
+    if source:
+        query_filter["source_name"] = source
+    if tag:
+        query_filter["tags"] = tag
+    if q:
+        query_filter["$or"] = [
+            {"title": {"$regex": q, "$options": "i"}},
+            {"summary": {"$regex": q, "$options": "i"}},
+        ]
+
+    skip = (page - 1) * per_page
+    total = await db.articles.count_documents(query_filter)
+    cursor = db.articles.find(query_filter, {"_id": 0}).sort("scraped_at", -1).skip(skip).limit(per_page)
+    articles = await cursor.to_list(length=per_page)
+
+    return {"total": total, "page": page, "per_page": per_page, "articles": articles}
+
+
+@router.get("/api/articles/{url_hash}")
+async def get_article(url_hash: str):
+    db = get_db()
+    article = await db.articles.find_one({"url_hash": url_hash}, {"_id": 0})
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+    return article
+
+
+@router.get("/api/stats")
+async def get_stats():
+    db = get_db()
+    total = await db.articles.count_documents({})
+
+    # Count by source
+    pipeline_source = [
+        {"$group": {"_id": "$source_name", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+    ]
+    by_source = {doc["_id"]: doc["count"] async for doc in db.articles.aggregate(pipeline_source)}
+
+    # Top tags
+    pipeline_tags = [
+        {"$unwind": "$tags"},
+        {"$group": {"_id": "$tags", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 20},
+    ]
+    top_tags = {doc["_id"]: doc["count"] async for doc in db.articles.aggregate(pipeline_tags)}
+
+    # Latest scrape time
+    latest = await db.articles.find_one(sort=[("scraped_at", -1)])
+    last_scraped = latest["scraped_at"] if latest else None
+
+    return {
+        "total_articles": total,
+        "by_source": by_source,
+        "top_tags": top_tags,
+        "last_scraped": last_scraped,
+    }
+
+
+@router.post("/api/scrape/{source}")
+async def trigger_scrape(source: str):
+    scraper_cls = SCRAPERS.get(source)
+    if not scraper_cls:
+        return {"error": f"Unknown source: {source}. Available: {list(SCRAPERS.keys())}"}
+
+    scraper = scraper_cls()
+    count = await scraper.scrape()
+    return {"source": source, "saved": count, "timestamp": datetime.utcnow().isoformat()}
+
+
+# ── PIB Endpoints ──────────────────────────────────────────────────
+
+@router.get("/api/pib/releases")
+async def list_pib_releases(
+    ministry: str = "",
+    q: str = "",
+    analyzed: str = "",  # "true" / "false" / "" (all)
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+):
+    db = get_db()
+    query_filter: dict = {}
+
+    if ministry:
+        query_filter["ministry"] = {"$regex": ministry, "$options": "i"}
+    if q:
+        query_filter["$text"] = {"$search": q}
+    if analyzed == "true":
+        query_filter["analyzed"] = True
+    elif analyzed == "false":
+        query_filter["analyzed"] = {"$ne": True}
+
+    skip = (page - 1) * per_page
+    total = await db.pib_releases.count_documents(query_filter)
+    cursor = (
+        db.pib_releases.find(query_filter, {"_id": 0, "full_text": 0})
+        .sort("published_at", -1)
+        .skip(skip)
+        .limit(per_page)
+    )
+    releases = await cursor.to_list(length=per_page)
+
+    return {"total": total, "page": page, "per_page": per_page, "releases": releases}
+
+
+@router.get("/api/pib/releases/{prid}")
+async def get_pib_release(prid: int):
+    db = get_db()
+    release = await db.pib_releases.find_one({"prid": prid}, {"_id": 0})
+    if not release:
+        raise HTTPException(status_code=404, detail="Release not found")
+
+    analysis = await db.pib_analysis.find_one({"prid": prid}, {"_id": 0})
+    return {"release": release, "analysis": analysis}
+
+
+@router.get("/api/pib/search")
+async def search_pib(
+    theme: str = "",
+    sub_theme: str = "",
+    company: str = "",
+    sentiment: str = "",
+    ministry: str = "",
+    impact: str = "",
+    market_only: str = "true",  # Default: show only market-relevant
+    sort: str = "impact",  # "impact" (high→low) or "date" (newest first)
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+):
+    """Search analyzed PIB releases by theme, company, sentiment, ministry."""
+    db = get_db()
+    query_filter: dict = {}
+
+    if theme:
+        query_filter["themes.primary"] = {"$regex": theme, "$options": "i"}
+    if sub_theme:
+        query_filter["themes.sub_theme"] = {"$regex": sub_theme, "$options": "i"}
+    if company:
+        query_filter["affected_companies.symbol"] = company.upper()
+    if sentiment:
+        query_filter["sentiment"] = sentiment.lower()
+    if ministry:
+        query_filter["ministry"] = {"$regex": ministry, "$options": "i"}
+    if impact:
+        query_filter["impact_magnitude"] = impact.lower()
+
+    # Default: exclude non-market releases (low impact + neutral + no companies)
+    if market_only == "true" and not any([theme, company, impact]):
+        query_filter["$or"] = [
+            {"impact_magnitude": {"$in": ["high", "medium"]}},
+            {"affected_companies.0": {"$exists": True}},
+        ]
+
+    skip = (page - 1) * per_page
+    total = await db.pib_analysis.count_documents(query_filter)
+
+    # Sort: impact (high→medium→low then by date) or date
+    if sort == "impact":
+        # Use aggregation for custom sort order
+        pipeline = [
+            {"$match": query_filter},
+            {"$addFields": {
+                "_impact_order": {
+                    "$switch": {
+                        "branches": [
+                            {"case": {"$eq": ["$impact_magnitude", "high"]}, "then": 0},
+                            {"case": {"$eq": ["$impact_magnitude", "medium"]}, "then": 1},
+                        ],
+                        "default": 2,
+                    }
+                }
+            }},
+            {"$sort": {"_impact_order": 1, "published_at": -1}},
+            {"$skip": skip},
+            {"$limit": per_page},
+            {"$project": {"_id": 0, "_impact_order": 0}},
+        ]
+        results = await db.pib_analysis.aggregate(pipeline).to_list(length=per_page)
+    else:
+        cursor = (
+            db.pib_analysis.find(query_filter, {"_id": 0})
+            .sort("published_at", -1)
+            .skip(skip)
+            .limit(per_page)
+        )
+        results = await cursor.to_list(length=per_page)
+
+    return {"total": total, "page": page, "per_page": per_page, "results": results}
+
+
+@router.get("/api/pib/company/{symbol}")
+async def get_pib_by_company(
+    symbol: str,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+):
+    """Get all PIB releases affecting a specific company."""
+    db = get_db()
+    symbol_upper = symbol.upper()
+
+    skip = (page - 1) * per_page
+    total = await db.pib_company_links.count_documents({"symbol": symbol_upper})
+    cursor = (
+        db.pib_company_links.find({"symbol": symbol_upper}, {"_id": 0})
+        .sort("published_at", -1)
+        .skip(skip)
+        .limit(per_page)
+    )
+    links = await cursor.to_list(length=per_page)
+
+    return {"symbol": symbol_upper, "total": total, "page": page, "per_page": per_page, "links": links}
+
+
+@router.get("/api/pib/stats")
+async def pib_stats():
+    """PIB collection statistics: counts by ministry, theme, sentiment."""
+    db = get_db()
+    total_releases = await db.pib_releases.count_documents({})
+    total_analyzed = await db.pib_analysis.count_documents({})
+    pending = await db.pib_releases.count_documents({"analyzed": {"$ne": True}})
+
+    # By ministry
+    pipeline_ministry = [
+        {"$group": {"_id": "$ministry", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 30},
+    ]
+    by_ministry = {
+        doc["_id"]: doc["count"]
+        async for doc in db.pib_releases.aggregate(pipeline_ministry)
+        if doc["_id"]
+    }
+
+    # By theme
+    pipeline_theme = [
+        {"$unwind": "$themes"},
+        {"$group": {"_id": "$themes.primary", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+    ]
+    by_theme = {
+        doc["_id"]: doc["count"]
+        async for doc in db.pib_analysis.aggregate(pipeline_theme)
+        if doc["_id"]
+    }
+
+    # By sentiment
+    pipeline_sentiment = [
+        {"$group": {"_id": "$sentiment", "count": {"$sum": 1}}},
+    ]
+    by_sentiment = {
+        doc["_id"]: doc["count"]
+        async for doc in db.pib_analysis.aggregate(pipeline_sentiment)
+        if doc["_id"]
+    }
+
+    # Top affected companies
+    pipeline_companies = [
+        {"$group": {"_id": "$symbol", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 20},
+    ]
+    top_companies = {
+        doc["_id"]: doc["count"]
+        async for doc in db.pib_company_links.aggregate(pipeline_companies)
+        if doc["_id"]
+    }
+
+    return {
+        "total_releases": total_releases,
+        "total_analyzed": total_analyzed,
+        "pending_analysis": pending,
+        "by_ministry": by_ministry,
+        "by_theme": by_theme,
+        "by_sentiment": by_sentiment,
+        "top_affected_companies": top_companies,
+    }
+
+
+@router.post("/api/pib/scrape")
+async def trigger_pib_scrape():
+    """Manually trigger PIB scraping."""
+    from app.scrapers.pib import PIBScraper
+    scraper = PIBScraper()
+    count = await scraper.scrape_latest()
+    return {"source": "pib", "saved": count, "timestamp": datetime.utcnow().isoformat()}
+
+
+@router.post("/api/pib/analyze")
+async def trigger_pib_analyze(limit: int = Query(20, ge=1, le=200)):
+    """Manually trigger LLM analysis on pending PIB releases."""
+    from app.services.pib_analyzer import analyze_pending
+    results = await analyze_pending(limit=limit)
+    return results
+
+
+@router.post("/api/pib/analyze/{prid}")
+async def trigger_pib_analyze_single(prid: int):
+    """Analyze a single PIB release."""
+    from app.services.pib_analyzer import analyze_release
+    result = await analyze_release(prid)
+    if not result:
+        raise HTTPException(status_code=500, detail="Analysis failed")
+    result.pop("_id", None)
+    return result
+
+
+_backfill_status = {"running": False, "progress": {}}
+
+
+@router.post("/api/pib/backfill")
+async def trigger_pib_backfill(
+    days: int = Query(365, ge=1, le=730),
+    background_tasks: "BackgroundTasks" = None,  # noqa: F821
+):
+    """Trigger historical backfill of PIB releases (runs in background)."""
+    import asyncio
+    from fastapi import BackgroundTasks as BT
+
+    if _backfill_status["running"]:
+        return {"status": "already_running", "progress": _backfill_status["progress"]}
+
+    async def _run_backfill(days: int):
+        from app.scrapers.pib import PIBScraper
+        _backfill_status["running"] = True
+        _backfill_status["progress"] = {"days": days, "saved": 0, "status": "starting"}
+        try:
+            scraper = PIBScraper()
+            result = await scraper.backfill(days=days)
+            _backfill_status["progress"] = {**result, "status": "completed"}
+        except Exception as e:
+            _backfill_status["progress"] = {"status": "error", "error": str(e)}
+        finally:
+            _backfill_status["running"] = False
+
+    asyncio.create_task(_run_backfill(days))
+    return {"status": "started", "days": days, "message": "Backfill running in background. Check GET /api/pib/backfill/status"}
+
+
+@router.get("/api/pib/backfill/status")
+async def backfill_status():
+    """Check backfill progress."""
+    return {"running": _backfill_status["running"], "progress": _backfill_status["progress"]}

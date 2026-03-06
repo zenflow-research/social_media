@@ -1,0 +1,16 @@
+.env
+__pycache__/
+*.pyc
+.claude/
+*.log
+claude_out.txt
+claude_err.txt
+server.log
+venv/
+.venv/
+node_modules/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+db_backups/

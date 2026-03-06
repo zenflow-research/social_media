@@ -1,0 +1,162 @@
+{
+  "Ministry of Finance": {
+    "sectors": ["Financial Services"],
+    "themes": ["Banking & Finance", "Taxation", "Budget"],
+    "keywords": ["rbi", "bank", "tax", "gst", "fiscal", "budget", "nbfc", "insurance", "sebi"]
+  },
+  "Ministry of Defence": {
+    "sectors": ["Capital Goods"],
+    "themes": ["Defence"],
+    "keywords": ["defence", "defense", "military", "army", "navy", "air force", "hal", "bel", "missile"]
+  },
+  "Ministry of Petroleum and Natural Gas": {
+    "sectors": ["Oil, Gas & Consumable Fuels", "Energy"],
+    "themes": ["Energy", "Oil & Gas"],
+    "keywords": ["petroleum", "oil", "gas", "ongc", "ioc", "bpcl", "hpcl", "refinery", "crude"]
+  },
+  "Ministry of Power": {
+    "sectors": ["Power", "Utilities"],
+    "themes": ["Energy", "Power"],
+    "keywords": ["power", "electricity", "ntpc", "grid", "solar", "wind", "renewable", "thermal"]
+  },
+  "Department of Atomic Energy": {
+    "sectors": ["Power", "Capital Goods"],
+    "themes": ["Energy", "Nuclear Energy"],
+    "keywords": ["nuclear", "atomic", "uranium", "thorium", "reactor", "npcil"]
+  },
+  "Ministry of Railways": {
+    "sectors": ["Construction", "Capital Goods", "Services"],
+    "themes": ["Infrastructure", "Railways"],
+    "keywords": ["railway", "irctc", "rvnl", "rail", "train", "metro", "vande bharat"]
+  },
+  "Ministry of Road Transport and Highways": {
+    "sectors": ["Construction", "Capital Goods"],
+    "themes": ["Infrastructure", "Roads & Highways"],
+    "keywords": ["highway", "road", "nhai", "expressway", "toll", "transport"]
+  },
+  "Ministry of Commerce and Industry": {
+    "sectors": ["Services", "Consumer Discretionary"],
+    "themes": ["Trade & Commerce", "Export Policy"],
+    "keywords": ["export", "import", "trade", "fdi", "commerce", "tariff", "anti-dumping", "wto"]
+  },
+  "Ministry of Health and Family Welfare": {
+    "sectors": ["Healthcare"],
+    "themes": ["Healthcare", "Pharma Policy"],
+    "keywords": ["health", "pharma", "drug", "medical", "hospital", "vaccine", "ayushman"]
+  },
+  "Ministry of Information Technology": {
+    "sectors": ["Information Technology"],
+    "themes": ["Technology", "Digital India"],
+    "keywords": ["it", "digital", "software", "cyber", "data", "semiconductor", "chip"]
+  },
+  "Ministry of Electronics and Information Technology": {
+    "sectors": ["Information Technology", "Consumer Discretionary"],
+    "themes": ["Technology", "Electronics", "Semiconductors"],
+    "keywords": ["electronics", "semiconductor", "chip", "mobile", "digital", "it"]
+  },
+  "Ministry of Heavy Industries": {
+    "sectors": ["Capital Goods", "Automobile"],
+    "themes": ["Manufacturing", "Auto & EV"],
+    "keywords": ["auto", "ev", "electric vehicle", "manufacturing", "capital goods", "machine"]
+  },
+  "Ministry of Steel": {
+    "sectors": ["Metals & Mining"],
+    "themes": ["Metals & Mining", "Steel"],
+    "keywords": ["steel", "sail", "iron", "metal", "jsw", "tata steel"]
+  },
+  "Ministry of Coal": {
+    "sectors": ["Oil, Gas & Consumable Fuels", "Metals & Mining"],
+    "themes": ["Energy", "Coal & Mining"],
+    "keywords": ["coal", "mining", "coal india", "lignite", "singareni"]
+  },
+  "Ministry of Mines": {
+    "sectors": ["Metals & Mining"],
+    "themes": ["Metals & Mining"],
+    "keywords": ["mining", "mineral", "bauxite", "copper", "zinc", "aluminium", "hindalco", "vedanta"]
+  },
+  "Ministry of Chemicals and Fertilizers": {
+    "sectors": ["Chemicals"],
+    "themes": ["Chemicals", "Fertilizers"],
+    "keywords": ["chemical", "fertilizer", "urea", "pharma", "pesticide", "agrochemical"]
+  },
+  "Ministry of Agriculture and Farmers Welfare": {
+    "sectors": ["Fast Moving Consumer Goods", "Chemicals"],
+    "themes": ["Agriculture", "Rural Economy"],
+    "keywords": ["agriculture", "farmer", "crop", "msp", "subsidy", "kisan", "irrigation", "fertilizer"]
+  },
+  "Ministry of Housing and Urban Affairs": {
+    "sectors": ["Construction", "Realty"],
+    "themes": ["Infrastructure", "Real Estate", "Smart Cities"],
+    "keywords": ["housing", "urban", "smart city", "real estate", "pmay", "metro", "construction"]
+  },
+  "Ministry of Civil Aviation": {
+    "sectors": ["Services"],
+    "themes": ["Aviation"],
+    "keywords": ["aviation", "airline", "airport", "indigo", "air india", "dgca", "flight"]
+  },
+  "Ministry of Shipping/Ports, Shipping and Waterways": {
+    "sectors": ["Services", "Infrastructure"],
+    "themes": ["Infrastructure", "Ports & Shipping"],
+    "keywords": ["port", "shipping", "waterway", "maritime", "sagarmala", "adani port"]
+  },
+  "Ministry of Textiles": {
+    "sectors": ["Consumer Discretionary"],
+    "themes": ["Textiles & Apparel"],
+    "keywords": ["textile", "garment", "cotton", "fabric", "apparel", "jute"]
+  },
+  "Ministry of New and Renewable Energy": {
+    "sectors": ["Power", "Capital Goods"],
+    "themes": ["Energy", "Renewable Energy", "Green Hydrogen"],
+    "keywords": ["solar", "wind", "renewable", "green hydrogen", "biomass", "ev", "clean energy"]
+  },
+  "Ministry of Telecommunications": {
+    "sectors": ["Telecommunication"],
+    "themes": ["Telecom", "Digital Infrastructure"],
+    "keywords": ["telecom", "spectrum", "5g", "broadband", "bsnl", "jio", "airtel", "vodafone"]
+  },
+  "Department of Space": {
+    "sectors": ["Capital Goods", "Information Technology"],
+    "themes": ["Space & Satellite"],
+    "keywords": ["isro", "satellite", "space", "launch", "rocket"]
+  },
+  "Ministry of Environment, Forest and Climate Change": {
+    "sectors": ["Chemicals", "Metals & Mining"],
+    "themes": ["Environment", "ESG", "Climate"],
+    "keywords": ["environment", "pollution", "carbon", "emission", "green", "esg", "climate"]
+  },
+  "NITI Aayog": {
+    "sectors": [],
+    "themes": ["Policy & Planning"],
+    "keywords": ["niti", "policy", "planning", "gdp", "growth", "reform"]
+  },
+  "Cabinet": {
+    "sectors": [],
+    "themes": ["Policy & Planning", "Cabinet Decisions"],
+    "keywords": ["cabinet", "approval", "policy", "reform", "fdi"]
+  },
+  "Prime Minister's Office": {
+    "sectors": [],
+    "themes": ["Policy & Planning"],
+    "keywords": ["pm", "prime minister", "modi", "policy", "scheme", "initiative"]
+  },
+  "Competition Commission of India": {
+    "sectors": [],
+    "themes": ["Regulation", "M&A"],
+    "keywords": ["cci", "merger", "acquisition", "competition", "antitrust", "shareholding"]
+  },
+  "Securities and Exchange Board of India": {
+    "sectors": ["Financial Services"],
+    "themes": ["Regulation", "Capital Markets"],
+    "keywords": ["sebi", "ipo", "listing", "mutual fund", "fpi", "insider trading"]
+  },
+  "Insurance Regulatory and Development Authority": {
+    "sectors": ["Financial Services"],
+    "themes": ["Insurance", "Regulation"],
+    "keywords": ["insurance", "irdai", "life insurance", "general insurance", "lic"]
+  },
+  "Reserve Bank of India": {
+    "sectors": ["Financial Services"],
+    "themes": ["Banking & Finance", "Monetary Policy"],
+    "keywords": ["rbi", "repo rate", "monetary", "inflation", "banking", "forex", "rupee"]
+  }
+}

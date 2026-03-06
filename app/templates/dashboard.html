@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZenFlow News Scraper</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <div class="brand-icon">Z</div>
+        <span class="brand-text">ZenFlow</span>
+    </div>
+
+    <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" data-view="feed">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2"/></svg>
+            <span>News Feed</span>
+        </a>
+        <a href="#" class="nav-item" data-view="stats">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+            <span>Analytics</span>
+        </a>
+        <a href="#" class="nav-item" data-view="pib">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/></svg>
+            <span>Govt News</span>
+        </a>
+        <a href="#" class="nav-item" data-view="scrape">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/><path d="M21 3v6h-6"/></svg>
+            <span>Scrape Now</span>
+        </a>
+    </nav>
+
+    <div class="sidebar-footer">
+        <div class="status-dot" id="statusDot"></div>
+        <span class="status-text" id="statusText">Connecting...</span>
+    </div>
+</aside>
+
+<!-- Main content -->
+<main class="main">
+
+    <!-- Top bar -->
+    <header class="topbar">
+        <button class="menu-toggle" id="menuToggle">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+        </button>
+        <div class="search-box">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input type="text" id="searchInput" placeholder="Search articles...">
+        </div>
+        <div class="topbar-actions">
+            <span class="last-update" id="lastUpdate"></span>
+            <button class="btn btn-sm btn-outline" id="refreshBtn" title="Refresh">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/><path d="M21 3v6h-6"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- ═══════ FEED VIEW ═══════ -->
+    <section class="view active" id="viewFeed">
+
+        <!-- Stats ribbon -->
+        <div class="stats-ribbon" id="statsRibbon">
+            <div class="stat-card">
+                <div class="stat-value" id="statTotal">--</div>
+                <div class="stat-label">Total Articles</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statSources">--</div>
+                <div class="stat-label">Sources Active</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statToday">--</div>
+                <div class="stat-label">Today</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statTags">--</div>
+                <div class="stat-label">Tags Matched</div>
+            </div>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="filter-bar">
+            <div class="filter-chips" id="sourceChips">
+                <button class="chip active" data-source="">All</button>
+            </div>
+            <select class="filter-select" id="tagFilter">
+                <option value="">All Tags</option>
+            </select>
+        </div>
+
+        <!-- Article list -->
+        <div class="article-list" id="articleList">
+            <div class="loading-skeleton">
+                <div class="skel-card"></div>
+                <div class="skel-card"></div>
+                <div class="skel-card"></div>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination" id="pagination"></div>
+    </section>
+
+    <!-- ═══════ STATS VIEW ═══════ -->
+    <section class="view" id="viewStats">
+        <h2 class="view-title">Analytics Overview</h2>
+
+        <div class="analytics-grid">
+            <!-- Source breakdown -->
+            <div class="analytics-card">
+                <h3>Articles by Source</h3>
+                <div class="bar-chart" id="sourceChart"></div>
+            </div>
+
+            <!-- Top tags -->
+            <div class="analytics-card">
+                <h3>Top Tags</h3>
+                <div class="tag-cloud" id="tagCloud"></div>
+            </div>
+
+            <!-- Timeline -->
+            <div class="analytics-card wide">
+                <h3>Recent Activity</h3>
+                <div class="timeline" id="timeline"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════ PIB / GOVT NEWS VIEW ═══════ -->
+    <section class="view" id="viewPib">
+        <h2 class="view-title">Government News (PIB)</h2>
+        <p class="view-subtitle">Press releases from PIB, analyzed for market impact and linked to listed companies.</p>
+
+        <!-- PIB Stats ribbon -->
+        <div class="stats-ribbon pib-stats-ribbon" id="pibStatsRibbon">
+            <div class="stat-card">
+                <div class="stat-value" id="pibTotal">--</div>
+                <div class="stat-label">Total Releases</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="pibAnalyzed">--</div>
+                <div class="stat-label">Analyzed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="pibPending">--</div>
+                <div class="stat-label">Pending</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="pibCompanies">--</div>
+                <div class="stat-label">Companies Linked</div>
+            </div>
+        </div>
+
+        <!-- PIB Filters -->
+        <div class="filter-bar pib-filter-bar">
+            <div class="search-box" style="max-width:260px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                <input type="text" id="pibThemeSearch" placeholder="Search theme (e.g. nuclear, defence)...">
+            </div>
+            <input type="text" id="pibCompanySearch" class="filter-select" placeholder="Company (e.g. ONGC)" style="width:140px">
+            <select class="filter-select" id="pibMinistryFilter">
+                <option value="">All Ministries</option>
+            </select>
+            <select class="filter-select" id="pibSentimentFilter">
+                <option value="">All Sentiments</option>
+                <option value="positive">Positive</option>
+                <option value="neutral">Neutral</option>
+                <option value="negative">Negative</option>
+            </select>
+            <select class="filter-select" id="pibSortFilter">
+                <option value="impact">Sort: Impact</option>
+                <option value="date">Sort: Date</option>
+            </select>
+            <label style="display:flex;align-items:center;gap:.3rem;font-size:.75rem;color:var(--text-muted);cursor:pointer">
+                <input type="checkbox" id="pibMarketOnly" checked> Market only
+            </label>
+            <button class="btn btn-sm btn-accent" id="pibScrapeBtn">Scrape Now</button>
+            <button class="btn btn-sm btn-outline" id="pibAnalyzeBtn">Analyze Pending</button>
+        </div>
+
+        <!-- PIB Theme & Sentiment summary -->
+        <div class="analytics-grid pib-analytics" style="margin-bottom:1.25rem">
+            <div class="analytics-card">
+                <h3>Themes</h3>
+                <div class="tag-cloud" id="pibThemeCloud"></div>
+            </div>
+            <div class="analytics-card">
+                <h3>Top Affected Companies</h3>
+                <div class="bar-chart" id="pibCompanyChart"></div>
+            </div>
+        </div>
+
+        <!-- PIB Results -->
+        <div class="article-list" id="pibResultsList">
+            <div class="empty-state"><p>Use filters above or click "Scrape Now" to fetch government releases.</p></div>
+        </div>
+        <div class="pagination" id="pibPagination"></div>
+    </section>
+
+    <!-- ═══════ SCRAPE VIEW ═══════ -->
+    <section class="view" id="viewScrape">
+        <h2 class="view-title">Manual Scrape</h2>
+        <p class="view-subtitle">Trigger scraping from individual sources on demand.</p>
+
+        <div class="scrape-grid">
+            <div class="scrape-card" data-source="zerodha_pulse">
+                <div class="scrape-icon" style="--clr: #e74c3c">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
+                </div>
+                <div class="scrape-info">
+                    <h3>Zerodha Pulse</h3>
+                    <p>Financial news aggregator</p>
+                </div>
+                <button class="btn btn-accent scrape-btn">Scrape</button>
+                <div class="scrape-result"></div>
+            </div>
+
+            <div class="scrape-card" data-source="rss">
+                <div class="scrape-icon" style="--clr: #f39c12">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11a9 9 0 019 9"/><path d="M4 4a16 16 0 0116 16"/><circle cx="5" cy="19" r="1"/></svg>
+                </div>
+                <div class="scrape-info">
+                    <h3>RSS Feeds</h3>
+                    <p>Economic Times, Livemint & more</p>
+                </div>
+                <button class="btn btn-accent scrape-btn">Scrape</button>
+                <div class="scrape-result"></div>
+            </div>
+
+            <div class="scrape-card" data-source="twitter">
+                <div class="scrape-icon" style="--clr: #1da1f2">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 3a10.9 10.9 0 01-3.14 1.53A4.48 4.48 0 0012 7.5v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z"/></svg>
+                </div>
+                <div class="scrape-info">
+                    <h3>Twitter / X</h3>
+                    <p>Market analysts & news accounts</p>
+                </div>
+                <button class="btn btn-accent scrape-btn">Scrape</button>
+                <div class="scrape-result"></div>
+            </div>
+
+            <div class="scrape-card" data-source="substack">
+                <div class="scrape-icon" style="--clr: #ff6719">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16M4 8h16M4 12l8 6 8-6"/></svg>
+                </div>
+                <div class="scrape-info">
+                    <h3>Substack</h3>
+                    <p>Newsletter feeds (Zennivesh, 91Capital & more)</p>
+                </div>
+                <button class="btn btn-accent scrape-btn">Scrape</button>
+                <div class="scrape-result"></div>
+            </div>
+
+            <div class="scrape-card" data-source="linkedin">
+                <div class="scrape-icon" style="--clr: #0077b5">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-4 0v7h-4v-7a6 6 0 016-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+                </div>
+                <div class="scrape-info">
+                    <h3>LinkedIn</h3>
+                    <p>Requires cookie auth setup</p>
+                </div>
+                <button class="btn btn-accent scrape-btn">Scrape</button>
+                <div class="scrape-result"></div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<!-- Toast container -->
+<div class="toast-container" id="toasts"></div>
+
+<!-- Article detail modal -->
+<div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+        <button class="modal-close" id="modalClose">&times;</button>
+        <div class="modal-body" id="modalBody"></div>
+    </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────
+const state = {
+    page: 1,
+    perPage: 20,
+    source: '',
+    tag: '',
+    q: '',
+    articles: [],
+    total: 0,
+    stats: null,
+};
+
+// ── API helpers ────────────────────────────────────────────────────
+async function api(path) {
+    const res = await fetch(path);
+    return res.json();
+}
+
+async function apiPost(path) {
+    const res = await fetch(path, { method: 'POST' });
+    return res.json();
+}
+
+// ── Load articles ──────────────────────────────────────────────────
+async function loadArticles() {
+    const params = new URLSearchParams();
+    if (state.source) params.set('source', state.source);
+    if (state.tag) params.set('tag', state.tag);
+    if (state.q) params.set('q', state.q);
+    params.set('page', state.page);
+    params.set('per_page', state.perPage);
+
+    const data = await api(`/api/articles?${params}`);
+    state.articles = data.articles;
+    state.total = data.total;
+    renderArticles();
+    renderPagination();
+}
+
+// ── Load stats ─────────────────────────────────────────────────────
+async function loadStats() {
+    state.stats = await api('/api/stats');
+    renderStatsRibbon();
+    renderSourceChips();
+    renderTagFilter();
+
+    // If on analytics view, render charts
+    if (document.getElementById('viewStats').classList.contains('active')) {
+        renderAnalytics();
+    }
+}
+
+// ── Render articles ────────────────────────────────────────────────
+function renderArticles() {
+    const container = document.getElementById('articleList');
+
+    if (!state.articles.length) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><path d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2"/></svg>
+                <h3>No articles found</h3>
+                <p>Try adjusting your filters or trigger a manual scrape.</p>
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = state.articles.map(a => {
+        const date = a.published_at ? new Date(a.published_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+        const scraped = new Date(a.scraped_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+        const summary = (a.summary || '').slice(0, 220);
+        const tags = (a.tags || []).slice(0, 6);
+        const sourceClass = `source-${a.source_name || 'unknown'}`;
+
+        return `
+        <article class="article-card" data-hash="${a.url_hash}">
+            ${a.image_url ? `<div class="article-thumb"><img src="${a.image_url}" alt="" loading="lazy" onerror="this.parentElement.remove()"></div>` : ''}
+            <div class="article-body">
+                <div class="article-meta">
+                    <span class="source-badge ${sourceClass}">${(a.source_name || '').replace('_', ' ')}</span>
+                    ${date ? `<span class="meta-date">${date}</span>` : ''}
+                    <span class="meta-scraped">Scraped ${scraped}</span>
+                </div>
+                <h3 class="article-title">
+                    <a href="${a.url}" target="_blank" rel="noopener">${a.title || 'Untitled'}</a>
+                </h3>
+                ${summary ? `<p class="article-summary">${summary}${summary.length >= 220 ? '...' : ''}</p>` : ''}
+                ${tags.length ? `<div class="article-tags">${tags.map(t => `<span class="tag" data-tag="${t}">${t}</span>`).join('')}</div>` : ''}
+            </div>
+        </article>`;
+    }).join('');
+
+    // Click tags to filter
+    container.querySelectorAll('.tag').forEach(el => {
+        el.addEventListener('click', () => {
+            state.tag = el.dataset.tag;
+            state.page = 1;
+            document.getElementById('tagFilter').value = state.tag;
+            loadArticles();
+        });
+    });
+}
+
+// ── Render pagination ──────────────────────────────────────────────
+function renderPagination() {
+    const totalPages = Math.max(1, Math.ceil(state.total / state.perPage));
+    const container = document.getElementById('pagination');
+
+    if (totalPages <= 1) { container.innerHTML = ''; return; }
+
+    let html = '';
+    if (state.page > 1) html += `<button class="page-btn" data-p="${state.page - 1}">&laquo; Prev</button>`;
+
+    for (let p = 1; p <= totalPages; p++) {
+        if (p === state.page) {
+            html += `<button class="page-btn current">${p}</button>`;
+        } else if (p <= 2 || p > totalPages - 2 || Math.abs(p - state.page) <= 2) {
+            html += `<button class="page-btn" data-p="${p}">${p}</button>`;
+        } else if (p === 3 || p === totalPages - 2) {
+            html += `<span class="page-dots">...</span>`;
+        }
+    }
+
+    if (state.page < totalPages) html += `<button class="page-btn" data-p="${state.page + 1}">Next &raquo;</button>`;
+
+    container.innerHTML = html;
+    container.querySelectorAll('[data-p]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            state.page = parseInt(btn.dataset.p);
+            loadArticles();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    });
+}
+
+// ── Stats ribbon ───────────────────────────────────────────────────
+function renderStatsRibbon() {
+    if (!state.stats) return;
+    const s = state.stats;
+    document.getElementById('statTotal').textContent = s.total_articles.toLocaleString();
+    document.getElementById('statSources').textContent = Object.keys(s.by_source).length;
+    document.getElementById('statTags').textContent = Object.keys(s.top_tags).length;
+
+    // "Today" — count articles scraped in the last 24h (approximation via total for now)
+    document.getElementById('statToday').textContent = '--';
+
+    if (s.last_scraped) {
+        const d = new Date(s.last_scraped);
+        document.getElementById('lastUpdate').textContent = `Last scrape: ${d.toLocaleTimeString()}`;
+    }
+}
+
+// ── Source chips ───────────────────────────────────────────────────
+function renderSourceChips() {
+    if (!state.stats) return;
+    const container = document.getElementById('sourceChips');
+    const sources = Object.entries(state.stats.by_source);
+
+    container.innerHTML = `<button class="chip ${state.source === '' ? 'active' : ''}" data-source="">All (${state.stats.total_articles})</button>` +
+        sources.map(([name, count]) =>
+            `<button class="chip ${state.source === name ? 'active' : ''}" data-source="${name}">${name.replace('_', ' ')} (${count})</button>`
+        ).join('');
+
+    container.querySelectorAll('.chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            state.source = chip.dataset.source;
+            state.page = 1;
+            container.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            loadArticles();
+        });
+    });
+}
+
+// ── Tag filter dropdown ────────────────────────────────────────────
+function renderTagFilter() {
+    if (!state.stats) return;
+    const sel = document.getElementById('tagFilter');
+    const tags = Object.entries(state.stats.top_tags).sort((a, b) => b[1] - a[1]);
+
+    sel.innerHTML = `<option value="">All Tags</option>` +
+        tags.map(([t, c]) => `<option value="${t}" ${state.tag === t ? 'selected' : ''}>${t} (${c})</option>`).join('');
+}
+
+// ── Analytics view ─────────────────────────────────────────────────
+function renderAnalytics() {
+    if (!state.stats) return;
+    const s = state.stats;
+
+    // Source bar chart
+    const sourceChart = document.getElementById('sourceChart');
+    const maxCount = Math.max(...Object.values(s.by_source), 1);
+    sourceChart.innerHTML = Object.entries(s.by_source)
+        .sort((a, b) => b[1] - a[1])
+        .map(([name, count]) => `
+            <div class="bar-row">
+                <span class="bar-label">${name.replace('_', ' ')}</span>
+                <div class="bar-track">
+                    <div class="bar-fill" style="width: ${(count / maxCount * 100).toFixed(1)}%"></div>
+                </div>
+                <span class="bar-value">${count}</span>
+            </div>
+        `).join('') || '<p class="muted">No data yet</p>';
+
+    // Tag cloud
+    const tagCloud = document.getElementById('tagCloud');
+    const tags = Object.entries(s.top_tags).sort((a, b) => b[1] - a[1]);
+    const maxTag = tags.length ? tags[0][1] : 1;
+    tagCloud.innerHTML = tags.map(([tag, count]) => {
+        const size = 0.7 + (count / maxTag) * 0.8;
+        const opacity = 0.4 + (count / maxTag) * 0.6;
+        return `<span class="cloud-tag" style="font-size:${size}rem; opacity:${opacity}">${tag} <sup>${count}</sup></span>`;
+    }).join('') || '<p class="muted">No tags yet</p>';
+
+    // Timeline — show last 10 articles
+    renderTimeline();
+}
+
+async function renderTimeline() {
+    const data = await api('/api/articles?per_page=10');
+    const tl = document.getElementById('timeline');
+    tl.innerHTML = data.articles.map(a => {
+        const t = new Date(a.scraped_at);
+        return `
+        <div class="tl-item">
+            <div class="tl-dot"></div>
+            <div class="tl-content">
+                <span class="tl-time">${t.toLocaleTimeString()} &middot; ${t.toLocaleDateString('en-IN', {day:'numeric',month:'short'})}</span>
+                <a href="${a.url}" target="_blank" class="tl-title">${(a.title || 'Untitled').slice(0, 80)}</a>
+                <span class="source-badge source-${a.source_name}">${(a.source_name || '').replace('_', ' ')}</span>
+            </div>
+        </div>`;
+    }).join('') || '<p class="muted">No activity yet</p>';
+}
+
+// ── Scrape triggers ────────────────────────────────────────────────
+document.querySelectorAll('.scrape-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const card = btn.closest('.scrape-card');
+        const source = card.dataset.source;
+        const result = card.querySelector('.scrape-result');
+
+        btn.disabled = true;
+        btn.textContent = 'Scraping...';
+        btn.classList.add('loading');
+        result.textContent = '';
+
+        try {
+            const data = await apiPost(`/api/scrape/${source}`);
+            if (data.error) {
+                result.innerHTML = `<span class="result-error">${data.error}</span>`;
+                toast(`${source}: ${data.error}`, 'error');
+            } else {
+                result.innerHTML = `<span class="result-ok">+${data.saved} articles saved</span>`;
+                toast(`${source.replace('_', ' ')}: ${data.saved} articles saved`, 'success');
+                loadStats();
+                loadArticles();
+            }
+        } catch (e) {
+            result.innerHTML = `<span class="result-error">Network error</span>`;
+            toast('Request failed', 'error');
+        }
+
+        btn.disabled = false;
+        btn.textContent = 'Scrape';
+        btn.classList.remove('loading');
+    });
+});
+
+// ── View switching ─────────────────────────────────────────────────
+document.querySelectorAll('.nav-item').forEach(link => {
+    link.addEventListener('click', e => {
+        e.preventDefault();
+        const view = link.dataset.view;
+
+        document.querySelectorAll('.nav-item').forEach(l => l.classList.remove('active'));
+        link.classList.add('active');
+
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.getElementById(`view${view.charAt(0).toUpperCase() + view.slice(1)}`).classList.add('active');
+
+        if (view === 'stats') renderAnalytics();
+        if (view === 'pib') { loadPibStats(); loadPibResults(); }
+
+        // Close mobile sidebar
+        document.getElementById('sidebar').classList.remove('open');
+    });
+});
+
+// ── Search ─────────────────────────────────────────────────────────
+let searchTimeout;
+document.getElementById('searchInput').addEventListener('input', e => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        state.q = e.target.value.trim();
+        state.page = 1;
+        loadArticles();
+    }, 400);
+});
+
+// ── Tag filter ─────────────────────────────────────────────────────
+document.getElementById('tagFilter').addEventListener('change', e => {
+    state.tag = e.target.value;
+    state.page = 1;
+    loadArticles();
+});
+
+// ── Refresh button ─────────────────────────────────────────────────
+document.getElementById('refreshBtn').addEventListener('click', () => {
+    loadStats();
+    loadArticles();
+    toast('Refreshed', 'info');
+});
+
+// ── Mobile menu toggle ─────────────────────────────────────────────
+document.getElementById('menuToggle').addEventListener('click', () => {
+    document.getElementById('sidebar').classList.toggle('open');
+});
+
+// ── Toast notifications ────────────────────────────────────────────
+function toast(msg, type = 'info') {
+    const container = document.getElementById('toasts');
+    const el = document.createElement('div');
+    el.className = `toast toast-${type}`;
+    el.textContent = msg;
+    container.appendChild(el);
+
+    requestAnimationFrame(() => el.classList.add('show'));
+    setTimeout(() => {
+        el.classList.remove('show');
+        setTimeout(() => el.remove(), 300);
+    }, 3000);
+}
+
+// ── Status indicator ───────────────────────────────────────────────
+async function checkStatus() {
+    try {
+        await api('/api/stats');
+        document.getElementById('statusDot').className = 'status-dot online';
+        document.getElementById('statusText').textContent = 'Connected';
+    } catch {
+        document.getElementById('statusDot').className = 'status-dot offline';
+        document.getElementById('statusText').textContent = 'Disconnected';
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// PIB / Government News
+// ══════════════════════════════════════════════════════════════════
+const pibState = { page: 1, perPage: 15, theme: '', company: '', ministry: '', sentiment: '', sort: 'impact', marketOnly: true };
+
+async function loadPibStats() {
+    const s = await api('/api/pib/stats');
+    document.getElementById('pibTotal').textContent = s.total_releases;
+    document.getElementById('pibAnalyzed').textContent = s.total_analyzed;
+    document.getElementById('pibPending').textContent = s.pending_analysis;
+    document.getElementById('pibCompanies').textContent = Object.keys(s.top_affected_companies || {}).length;
+
+    // Ministry dropdown
+    const sel = document.getElementById('pibMinistryFilter');
+    const opts = Object.entries(s.by_ministry || {}).sort((a,b) => b[1]-a[1]);
+    sel.innerHTML = '<option value="">All Ministries</option>' +
+        opts.map(([m, c]) => `<option value="${m}">${m} (${c})</option>`).join('');
+
+    // Theme cloud
+    const cloud = document.getElementById('pibThemeCloud');
+    const themes = Object.entries(s.by_theme || {}).sort((a,b) => b[1]-a[1]);
+    const maxT = themes.length ? themes[0][1] : 1;
+    cloud.innerHTML = themes.map(([t, c]) => {
+        const size = 0.7 + (c / maxT) * 0.8;
+        return `<span class="cloud-tag pib-theme-tag" data-theme="${t}" style="font-size:${size}rem;cursor:pointer">${t} <sup>${c}</sup></span>`;
+    }).join('') || '<p class="muted">No themes yet</p>';
+
+    cloud.querySelectorAll('.pib-theme-tag').forEach(el => {
+        el.addEventListener('click', () => {
+            pibState.theme = el.dataset.theme;
+            document.getElementById('pibThemeSearch').value = pibState.theme;
+            pibState.page = 1;
+            loadPibResults();
+        });
+    });
+
+    // Company chart
+    const chart = document.getElementById('pibCompanyChart');
+    const companies = Object.entries(s.top_affected_companies || {}).sort((a,b) => b[1]-a[1]).slice(0, 10);
+    const maxC = companies.length ? companies[0][1] : 1;
+    chart.innerHTML = companies.map(([sym, c]) => `
+        <div class="bar-row" style="cursor:pointer" data-sym="${sym}">
+            <span class="bar-label" style="width:80px">${sym}</span>
+            <div class="bar-track"><div class="bar-fill" style="width:${(c/maxC*100).toFixed(1)}%"></div></div>
+            <span class="bar-value">${c}</span>
+        </div>
+    `).join('') || '<p class="muted">No data yet</p>';
+
+    chart.querySelectorAll('.bar-row[data-sym]').forEach(el => {
+        el.addEventListener('click', () => {
+            pibState.company = el.dataset.sym;
+            document.getElementById('pibCompanySearch').value = pibState.company;
+            pibState.page = 1;
+            loadPibResults();
+        });
+    });
+}
+
+async function loadPibResults() {
+    const params = new URLSearchParams();
+    if (pibState.theme)     params.set('theme', pibState.theme);
+    if (pibState.company)   params.set('company', pibState.company);
+    if (pibState.ministry)  params.set('ministry', pibState.ministry);
+    if (pibState.sentiment) params.set('sentiment', pibState.sentiment);
+    params.set('sort', pibState.sort);
+    params.set('market_only', pibState.marketOnly ? 'true' : 'false');
+    params.set('page', pibState.page);
+    params.set('per_page', pibState.perPage);
+
+    const data = await api(`/api/pib/search?${params}`);
+    renderPibResults(data);
+}
+
+function renderPibResults(data) {
+    const container = document.getElementById('pibResultsList');
+
+    if (!data.results || !data.results.length) {
+        container.innerHTML = '<div class="empty-state"><h3>No results</h3><p>Try different filters or scrape more releases.</p></div>';
+        document.getElementById('pibPagination').innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = data.results.map(r => {
+        const date = r.published_at ? new Date(r.published_at).toLocaleDateString('en-IN', {day:'numeric',month:'short',year:'numeric'}) : '';
+        const themes = (r.themes || []).map(t => `<span class="tag">${t.primary}${t.sub_theme ? ' / ' + t.sub_theme : ''}</span>`).join('');
+        const companies = (r.affected_companies || []).slice(0, 5).map(c =>
+            `<span class="tag" style="background:var(--green-dim);color:var(--green)" title="${c.reason}">${c.symbol} (${c.relevance})</span>`
+        ).join('');
+        const sentStyle = r.sentiment === 'positive' ? 'color:var(--green)' : r.sentiment === 'negative' ? 'color:var(--red)' : 'color:var(--text-muted)';
+        const impactStyle = r.impact_magnitude === 'high' ? 'color:var(--orange)' : r.impact_magnitude === 'medium' ? 'color:var(--accent)' : 'color:var(--text-muted)';
+
+        return `
+        <article class="article-card">
+            <div class="article-body">
+                <div class="article-meta">
+                    <span class="source-badge" style="background:var(--green-dim);color:var(--green)">${r.ministry || 'PIB'}</span>
+                    <span class="meta-date">${date}</span>
+                    <span style="${sentStyle};font-weight:600;text-transform:uppercase;font-size:.65rem">${r.sentiment || ''}</span>
+                    <span style="${impactStyle};font-size:.65rem">${r.impact_magnitude ? r.impact_magnitude + ' impact' : ''}</span>
+                </div>
+                <h3 class="article-title">
+                    <a href="https://www.pib.gov.in/PressReleasePage.aspx?PRID=${r.prid}" target="_blank">${r.title || 'Untitled'}</a>
+                </h3>
+                <p class="article-summary">${r.summary || ''}</p>
+                ${themes ? '<div class="article-tags" style="margin-bottom:.3rem">' + themes + '</div>' : ''}
+                ${companies ? '<div class="article-tags">' + companies + '</div>' : ''}
+                ${r.key_policy_changes && r.key_policy_changes.length ? '<details style="margin-top:.4rem"><summary style="font-size:.75rem;color:var(--text-muted);cursor:pointer">Policy Changes (' + r.key_policy_changes.length + ')</summary><ul style="font-size:.75rem;color:var(--text-muted);padding-left:1rem;margin-top:.3rem">' + r.key_policy_changes.map(p => '<li>' + p + '</li>').join('') + '</ul></details>' : ''}
+            </div>
+        </article>`;
+    }).join('');
+
+    // Pagination
+    const totalPages = Math.max(1, Math.ceil(data.total / pibState.perPage));
+    const pgn = document.getElementById('pibPagination');
+    if (totalPages <= 1) { pgn.innerHTML = ''; return; }
+    let html = '';
+    if (pibState.page > 1) html += '<button class="page-btn" data-pp="' + (pibState.page-1) + '">&laquo;</button>';
+    for (let p = 1; p <= totalPages; p++) {
+        if (p === pibState.page) html += '<button class="page-btn current">' + p + '</button>';
+        else if (p <= 2 || p > totalPages-2 || Math.abs(p-pibState.page) <= 2) html += '<button class="page-btn" data-pp="' + p + '">' + p + '</button>';
+        else if (p === 3 || p === totalPages-2) html += '<span class="page-dots">...</span>';
+    }
+    if (pibState.page < totalPages) html += '<button class="page-btn" data-pp="' + (pibState.page+1) + '">&raquo;</button>';
+    pgn.innerHTML = html;
+    pgn.querySelectorAll('[data-pp]').forEach(b => b.addEventListener('click', () => { pibState.page = +b.dataset.pp; loadPibResults(); }));
+}
+
+// PIB filter events
+let pibThemeTimeout;
+document.getElementById('pibThemeSearch').addEventListener('input', e => {
+    clearTimeout(pibThemeTimeout);
+    pibThemeTimeout = setTimeout(() => { pibState.theme = e.target.value.trim(); pibState.page = 1; loadPibResults(); }, 400);
+});
+document.getElementById('pibCompanySearch').addEventListener('change', e => {
+    pibState.company = e.target.value.trim().toUpperCase(); pibState.page = 1; loadPibResults();
+});
+document.getElementById('pibMinistryFilter').addEventListener('change', e => {
+    pibState.ministry = e.target.value; pibState.page = 1; loadPibResults();
+});
+document.getElementById('pibSentimentFilter').addEventListener('change', e => {
+    pibState.sentiment = e.target.value; pibState.page = 1; loadPibResults();
+});
+document.getElementById('pibSortFilter').addEventListener('change', e => {
+    pibState.sort = e.target.value; pibState.page = 1; loadPibResults();
+});
+document.getElementById('pibMarketOnly').addEventListener('change', e => {
+    pibState.marketOnly = e.target.checked; pibState.page = 1; loadPibResults();
+});
+
+// PIB action buttons
+document.getElementById('pibScrapeBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('pibScrapeBtn');
+    btn.disabled = true; btn.textContent = 'Scraping...';
+    try {
+        const d = await apiPost('/api/pib/scrape');
+        toast('PIB: ' + d.saved + ' new releases scraped', 'success');
+        loadPibStats(); loadPibResults();
+    } catch(e) { toast('PIB scrape failed', 'error'); }
+    btn.disabled = false; btn.textContent = 'Scrape Now';
+});
+
+document.getElementById('pibAnalyzeBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('pibAnalyzeBtn');
+    btn.disabled = true; btn.textContent = 'Analyzing...';
+    try {
+        const d = await apiPost('/api/pib/analyze?limit=20');
+        toast('PIB: ' + d.analyzed + ' analyzed, ' + d.failed + ' failed', d.failed ? 'error' : 'success');
+        loadPibStats(); loadPibResults();
+    } catch(e) { toast('PIB analysis failed', 'error'); }
+    btn.disabled = false; btn.textContent = 'Analyze Pending';
+});
+
+// ── Init ───────────────────────────────────────────────────────────
+(async function init() {
+    await checkStatus();
+    await loadStats();
+    await loadArticles();
+})();
+</script>
+
+</body>
+</html>
