@@ -524,15 +524,39 @@ async def parivesh_stats():
     }
 
 
+_parivesh_status = {"running": False, "progress": {}}
+
+
 @router.post("/api/parivesh/scrape")
 async def trigger_parivesh_scrape(
     batch_size: int = Query(50, ge=1, le=500),
 ):
-    """Search Parivesh for Nifty 500 companies (batch_size at a time)."""
-    from app.scrapers.parivesh import PariveshScraper
-    scraper = PariveshScraper()
-    result = await scraper.scrape_all(batch_size=batch_size)
-    return result
+    """Search Parivesh for Nifty 500 companies (runs in background)."""
+    import asyncio
+
+    if _parivesh_status["running"]:
+        return {"status": "already_running", "progress": _parivesh_status["progress"]}
+
+    async def _run(bs: int):
+        from app.scrapers.parivesh import PariveshScraper
+        _parivesh_status["running"] = True
+        _parivesh_status["progress"] = {"status": "starting", "batch_size": bs}
+        try:
+            scraper = PariveshScraper()
+            result = await scraper.scrape_all(batch_size=bs)
+            _parivesh_status["progress"] = {**result, "status": "completed"}
+        except Exception as e:
+            _parivesh_status["progress"] = {"status": "error", "error": str(e)}
+        finally:
+            _parivesh_status["running"] = False
+
+    asyncio.create_task(_run(batch_size))
+    return {"status": "started", "batch_size": batch_size, "message": "Scraping in background. Check GET /api/parivesh/scrape/status"}
+
+
+@router.get("/api/parivesh/scrape/status")
+async def parivesh_scrape_status():
+    return {"running": _parivesh_status["running"], "progress": _parivesh_status["progress"]}
 
 
 @router.post("/api/parivesh/documents")
@@ -563,6 +587,13 @@ async def parivesh_search_company(
             )
             resp.raise_for_status()
             data = resp.json()
-            return {"query": company, "count": len(data) if isinstance(data, list) else 0, "results": data}
+            # API returns {"data": [...]} or a plain list
+            if isinstance(data, dict) and "data" in data:
+                items = data["data"] if isinstance(data["data"], list) else []
+            elif isinstance(data, list):
+                items = data
+            else:
+                items = []
+            return {"query": company, "count": len(items), "results": items}
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"Parivesh API error: {str(e)}")

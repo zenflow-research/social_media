@@ -1014,16 +1014,35 @@ document.getElementById('pvTypeFilter').addEventListener('change', e => {
     pvState.clearanceType = e.target.value; pvState.page = 1; loadPariveshResults();
 });
 
-// Scrape button
+// Scrape button (runs in background)
 document.getElementById('pvScrapeBtn').addEventListener('click', async () => {
     const btn = document.getElementById('pvScrapeBtn');
-    btn.disabled = true; btn.textContent = 'Scraping...';
+    btn.disabled = true; btn.textContent = 'Starting...';
     try {
         const d = await apiPost('/api/parivesh/scrape?batch_size=50');
-        toast(`Parivesh: ${d.total_saved} proposals from ${d.companies_searched} companies (${d.companies_remaining} remaining)`, 'success');
-        loadPariveshStats(); loadPariveshResults();
-    } catch(e) { toast('Parivesh scrape failed', 'error'); }
-    btn.disabled = false; btn.textContent = 'Scrape Companies';
+        if (d.status === 'already_running') {
+            toast('Parivesh scrape already running', 'info');
+        } else {
+            toast('Parivesh scrape started in background', 'success');
+        }
+        // Poll for completion
+        const pollId = setInterval(async () => {
+            const s = await api('/api/parivesh/scrape/status');
+            if (!s.running) {
+                clearInterval(pollId);
+                btn.disabled = false; btn.textContent = 'Scrape Companies';
+                const p = s.progress || {};
+                if (p.status === 'completed') {
+                    toast(`Done: ${p.total_saved} proposals from ${p.companies_searched} companies (${p.companies_remaining} remaining)`, 'success');
+                } else if (p.status === 'error') {
+                    toast('Scrape error: ' + p.error, 'error');
+                }
+                loadPariveshStats(); loadPariveshResults();
+            } else {
+                btn.textContent = 'Scraping...';
+            }
+        }, 5000);
+    } catch(e) { toast('Parivesh scrape failed', 'error'); btn.disabled = false; btn.textContent = 'Scrape Companies'; }
 });
 
 // Fetch docs button
