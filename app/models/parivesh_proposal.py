@@ -6,17 +6,17 @@ from pydantic import BaseModel, Field
 class PariveshProposal(BaseModel):
     proposal_no: str
     proposal_id: int | None = None
-    project_name: str = ""
-    company_name: str = ""
+    project_name: str | None = ""
+    company_name: str | None = ""
     nse_symbol: str = ""  # Matched Nifty 500 symbol
-    state: str = ""
-    sector: str = ""
-    category: str = ""
-    clearance_type: str = ""  # EC, FC, WL, CRZ
-    proposal_status: str = ""
-    date_of_submission: str = ""
-    certificate_url: str = ""
-    single_window_number: str = ""
+    state: str | None = ""
+    sector: str | None = ""
+    category: str | None = ""
+    clearance_type: str | None = ""  # EC, FC, WL, CRZ
+    proposal_status: str | None = ""
+    date_of_submission: str | None = ""
+    certificate_url: str | None = ""
+    single_window_number: str | None = ""
     url: str = ""
     scraped_at: datetime = Field(default_factory=datetime.utcnow)
     documents_fetched: bool = False
@@ -27,7 +27,7 @@ class PariveshDocument(BaseModel):
     proposal_no: str
     proposal_id: int | None = None
     doc_uuid: str = ""
-    doc_name: str = ""
-    doc_type: str = ""  # CERTIFICATE, EDS_QUERY, fc, etc.
-    category: str = ""  # documentDetails, agendaDetails, momDetails, cafDetails
+    doc_name: str | None = ""
+    doc_type: str | None = ""  # CERTIFICATE, EDS_QUERY, fc, etc.
+    category: str | None = ""  # documentDetails, agendaDetails, momDetails, cafDetails
     scraped_at: datetime = Field(default_factory=datetime.utcnow)
