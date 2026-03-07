@@ -28,6 +28,10 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/></svg>
             <span>Govt News</span>
         </a>
+        <a href="#" class="nav-item" data-view="parivesh">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span>Env Clearance</span>
+        </a>
         <a href="#" class="nav-item" data-view="scrape">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/><path d="M21 3v6h-6"/></svg>
             <span>Scrape Now</span>
@@ -200,6 +204,83 @@
             <div class="empty-state"><p>Use filters above or click "Scrape Now" to fetch government releases.</p></div>
         </div>
         <div class="pagination" id="pibPagination"></div>
+    </section>
+
+    <!-- ═══════ PARIVESH / ENV CLEARANCE VIEW ═══════ -->
+    <section class="view" id="viewParivesh">
+        <h2 class="view-title">Environmental Clearances (Parivesh)</h2>
+        <p class="view-subtitle">EC/FC/WL/CRZ proposals from parivesh.nic.in for listed companies (mcap &ge; 500cr).</p>
+
+        <!-- Stats ribbon -->
+        <div class="stats-ribbon" id="pariveshStatsRibbon">
+            <div class="stat-card">
+                <div class="stat-value" id="pvTotal">--</div>
+                <div class="stat-label">Proposals</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="pvDocs">--</div>
+                <div class="stat-label">Documents</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="pvSearched">--</div>
+                <div class="stat-label">Companies Searched</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="pvPending">--</div>
+                <div class="stat-label">Docs Pending</div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filter-bar pib-filter-bar">
+            <div class="search-box" style="max-width:220px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                <input type="text" id="pvCompanyInput" placeholder="NSE Symbol (e.g. SAILIFE)">
+            </div>
+            <select class="filter-select" id="pvStatusFilter">
+                <option value="">All Statuses</option>
+            </select>
+            <select class="filter-select" id="pvTypeFilter">
+                <option value="">All Types</option>
+                <option value="EC">EC</option>
+                <option value="FC">FC</option>
+                <option value="WL">Wildlife</option>
+                <option value="CRZ">CRZ</option>
+            </select>
+            <button class="btn btn-sm btn-accent" id="pvScrapeBtn">Scrape Companies</button>
+            <button class="btn btn-sm btn-outline" id="pvDocsBtn">Fetch Documents</button>
+        </div>
+
+        <!-- Ad-hoc search -->
+        <div class="filter-bar" style="margin-top:0;padding-top:0">
+            <div class="search-box" style="max-width:300px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                <input type="text" id="pvLiveSearch" placeholder="Search Parivesh live (e.g. sai life)...">
+            </div>
+            <button class="btn btn-sm btn-outline" id="pvLiveSearchBtn">Search Parivesh</button>
+            <span class="meta-date" id="pvLiveCount"></span>
+        </div>
+
+        <!-- Analytics -->
+        <div class="analytics-grid pib-analytics" style="margin-bottom:1.25rem">
+            <div class="analytics-card">
+                <h3>By Clearance Type</h3>
+                <div class="bar-chart" id="pvTypeChart"></div>
+            </div>
+            <div class="analytics-card">
+                <h3>Top Companies</h3>
+                <div class="bar-chart" id="pvCompanyChart"></div>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div class="article-list" id="pvResultsList">
+            <div class="empty-state"><p>Click "Scrape Companies" to search Parivesh for environmental clearances.</p></div>
+        </div>
+        <div class="pagination" id="pvPagination"></div>
+
+        <!-- Live search results -->
+        <div class="article-list" id="pvLiveResults" style="display:none"></div>
     </section>
 
     <!-- ═══════ SCRAPE VIEW ═══════ -->
@@ -565,6 +646,7 @@ document.querySelectorAll('.nav-item').forEach(link => {
 
         if (view === 'stats') renderAnalytics();
         if (view === 'pib') { loadPibStats(); loadPibResults(); }
+        if (view === 'parivesh') { loadPariveshStats(); loadPariveshResults(); }
 
         // Close mobile sidebar
         document.getElementById('sidebar').classList.remove('open');
@@ -798,6 +880,209 @@ document.getElementById('pibAnalyzeBtn').addEventListener('click', async () => {
         loadPibStats(); loadPibResults();
     } catch(e) { toast('PIB analysis failed', 'error'); }
     btn.disabled = false; btn.textContent = 'Analyze Pending';
+});
+
+// ══════════════════════════════════════════════════════════════════
+// Parivesh / Environmental Clearances
+// ══════════════════════════════════════════════════════════════════
+const pvState = { page: 1, perPage: 20, symbol: '', status: '', clearanceType: '' };
+
+async function loadPariveshStats() {
+    const s = await api('/api/parivesh/stats');
+    document.getElementById('pvTotal').textContent = s.total_proposals;
+    document.getElementById('pvDocs').textContent = s.total_documents;
+    document.getElementById('pvSearched').textContent = s.companies_searched;
+    document.getElementById('pvPending').textContent = s.documents_pending;
+
+    // Status dropdown
+    const sel = document.getElementById('pvStatusFilter');
+    const statuses = Object.entries(s.by_status || {}).sort((a,b) => b[1]-a[1]);
+    sel.innerHTML = '<option value="">All Statuses</option>' +
+        statuses.map(([st, c]) => `<option value="${st}">${st} (${c})</option>`).join('');
+
+    // Clearance type chart
+    const typeChart = document.getElementById('pvTypeChart');
+    const types = Object.entries(s.by_clearance_type || {}).sort((a,b) => b[1]-a[1]);
+    const maxT = types.length ? types[0][1] : 1;
+    typeChart.innerHTML = types.map(([t, c]) => `
+        <div class="bar-row">
+            <span class="bar-label" style="width:60px">${t}</span>
+            <div class="bar-track"><div class="bar-fill" style="width:${(c/maxT*100).toFixed(1)}%"></div></div>
+            <span class="bar-value">${c}</span>
+        </div>
+    `).join('') || '<p class="muted">No data yet</p>';
+
+    // Top companies chart
+    const compChart = document.getElementById('pvCompanyChart');
+    const companies = Object.entries(s.top_companies || {}).sort((a,b) => b[1]-a[1]).slice(0, 10);
+    const maxC = companies.length ? companies[0][1] : 1;
+    compChart.innerHTML = companies.map(([sym, c]) => `
+        <div class="bar-row" style="cursor:pointer" data-pvsym="${sym}">
+            <span class="bar-label" style="width:80px">${sym}</span>
+            <div class="bar-track"><div class="bar-fill" style="width:${(c/maxC*100).toFixed(1)}%"></div></div>
+            <span class="bar-value">${c}</span>
+        </div>
+    `).join('') || '<p class="muted">No data yet</p>';
+
+    compChart.querySelectorAll('[data-pvsym]').forEach(el => {
+        el.addEventListener('click', () => {
+            pvState.symbol = el.dataset.pvsym;
+            document.getElementById('pvCompanyInput').value = pvState.symbol;
+            pvState.page = 1;
+            loadPariveshResults();
+        });
+    });
+}
+
+async function loadPariveshResults() {
+    const params = new URLSearchParams();
+    if (pvState.symbol) params.set('symbol', pvState.symbol);
+    if (pvState.status) params.set('status', pvState.status);
+    if (pvState.clearanceType) params.set('clearance_type', pvState.clearanceType);
+    params.set('page', pvState.page);
+    params.set('per_page', pvState.perPage);
+
+    const data = await api(`/api/parivesh/proposals?${params}`);
+    renderPariveshResults(data);
+}
+
+function renderPariveshResults(data) {
+    const container = document.getElementById('pvResultsList');
+    const proposals = data.proposals || [];
+
+    if (!proposals.length) {
+        container.innerHTML = '<div class="empty-state"><h3>No proposals found</h3><p>Try scraping or adjusting filters.</p></div>';
+        document.getElementById('pvPagination').innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = proposals.map(p => {
+        const statusColor = p.proposal_status === 'EC Granted' ? 'var(--green)' :
+            p.proposal_status === 'ToR Granted' ? 'var(--accent)' :
+            p.proposal_status && p.proposal_status.includes('Pending') ? 'var(--orange)' : 'var(--text-muted)';
+        const symbols = (p.matched_symbols || [p.nse_symbol]).filter(Boolean);
+
+        return `
+        <article class="article-card">
+            <div class="article-body">
+                <div class="article-meta">
+                    ${symbols.map(s => `<span class="source-badge" style="background:var(--green-dim);color:var(--green)">${s}</span>`).join('')}
+                    <span class="source-badge">${p.clearance_type || 'EC'}</span>
+                    <span style="color:${statusColor};font-weight:600;font-size:.7rem">${p.proposal_status || ''}</span>
+                    <span class="meta-date">${p.state || ''}</span>
+                    <span class="meta-date">${p.category || ''}</span>
+                </div>
+                <h3 class="article-title">
+                    <a href="${p.url || '#'}" target="_blank">${p.project_name || p.company_name || 'Untitled'}</a>
+                </h3>
+                <p class="article-summary" style="font-size:.8rem;color:var(--text-muted)">
+                    ${p.company_name || ''} &middot; ${p.sector || ''} &middot; Submitted: ${p.date_of_submission ? p.date_of_submission.slice(0, 10) : 'N/A'}
+                </p>
+                <div class="article-tags">
+                    <span class="tag">${p.proposal_no}</span>
+                    ${p.certificate_url ? `<a href="${p.certificate_url}" target="_blank" class="tag" style="background:var(--green-dim);color:var(--green);text-decoration:none">Certificate PDF</a>` : ''}
+                    ${p.single_window_number ? `<span class="tag">${p.single_window_number}</span>` : ''}
+                </div>
+            </div>
+        </article>`;
+    }).join('');
+
+    // Pagination
+    const totalPages = Math.max(1, Math.ceil(data.total / pvState.perPage));
+    const pgn = document.getElementById('pvPagination');
+    if (totalPages <= 1) { pgn.innerHTML = ''; return; }
+    let html = '';
+    if (pvState.page > 1) html += '<button class="page-btn" data-pvp="' + (pvState.page-1) + '">&laquo;</button>';
+    for (let p = 1; p <= totalPages; p++) {
+        if (p === pvState.page) html += '<button class="page-btn current">' + p + '</button>';
+        else if (p <= 2 || p > totalPages-2 || Math.abs(p-pvState.page) <= 2) html += '<button class="page-btn" data-pvp="' + p + '">' + p + '</button>';
+        else if (p === 3 || p === totalPages-2) html += '<span class="page-dots">...</span>';
+    }
+    if (pvState.page < totalPages) html += '<button class="page-btn" data-pvp="' + (pvState.page+1) + '">&raquo;</button>';
+    pgn.innerHTML = html;
+    pgn.querySelectorAll('[data-pvp]').forEach(b => b.addEventListener('click', () => { pvState.page = +b.dataset.pvp; loadPariveshResults(); }));
+}
+
+// Parivesh filter events
+document.getElementById('pvCompanyInput').addEventListener('change', e => {
+    pvState.symbol = e.target.value.trim().toUpperCase(); pvState.page = 1; loadPariveshResults();
+});
+document.getElementById('pvStatusFilter').addEventListener('change', e => {
+    pvState.status = e.target.value; pvState.page = 1; loadPariveshResults();
+});
+document.getElementById('pvTypeFilter').addEventListener('change', e => {
+    pvState.clearanceType = e.target.value; pvState.page = 1; loadPariveshResults();
+});
+
+// Scrape button
+document.getElementById('pvScrapeBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('pvScrapeBtn');
+    btn.disabled = true; btn.textContent = 'Scraping...';
+    try {
+        const d = await apiPost('/api/parivesh/scrape?batch_size=50');
+        toast(`Parivesh: ${d.total_saved} proposals from ${d.companies_searched} companies (${d.companies_remaining} remaining)`, 'success');
+        loadPariveshStats(); loadPariveshResults();
+    } catch(e) { toast('Parivesh scrape failed', 'error'); }
+    btn.disabled = false; btn.textContent = 'Scrape Companies';
+});
+
+// Fetch docs button
+document.getElementById('pvDocsBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('pvDocsBtn');
+    btn.disabled = true; btn.textContent = 'Fetching...';
+    try {
+        const d = await apiPost('/api/parivesh/documents?limit=50');
+        toast(`Parivesh: ${d.documents_saved} documents from ${d.proposals_processed} proposals`, 'success');
+        loadPariveshStats();
+    } catch(e) { toast('Document fetch failed', 'error'); }
+    btn.disabled = false; btn.textContent = 'Fetch Documents';
+});
+
+// Live search
+document.getElementById('pvLiveSearchBtn').addEventListener('click', async () => {
+    const q = document.getElementById('pvLiveSearch').value.trim();
+    if (!q) return;
+    const btn = document.getElementById('pvLiveSearchBtn');
+    btn.disabled = true; btn.textContent = 'Searching...';
+    try {
+        const d = await apiPost(`/api/parivesh/search?company=${encodeURIComponent(q)}`);
+        const container = document.getElementById('pvLiveResults');
+        const count = d.count || 0;
+        document.getElementById('pvLiveCount').textContent = `${count} results from Parivesh`;
+        container.style.display = 'block';
+
+        if (!count) {
+            container.innerHTML = '<div class="empty-state"><p>No results found on Parivesh.</p></div>';
+        } else {
+            const items = d.results || [];
+            container.innerHTML = '<h3 style="margin:0 0 .5rem;font-size:.9rem;color:var(--text-muted)">Live Parivesh Results (not saved)</h3>' +
+                items.map(p => `
+                <article class="article-card" style="border-left:3px solid var(--accent)">
+                    <div class="article-body">
+                        <div class="article-meta">
+                            <span class="source-badge">${p.proposalType || p.clearanceType || 'EC'}</span>
+                            <span style="font-weight:600;font-size:.7rem">${p.proposalStatus || ''}</span>
+                            <span class="meta-date">${p.state || ''}</span>
+                            <span class="meta-date">${p.category || ''}</span>
+                        </div>
+                        <h3 class="article-title">
+                            <a href="https://parivesh.nic.in/newupgrade/#/trackYourProposal/proposal-details?proposalId=${p.proposalNo}&proposal=${p.id}" target="_blank">
+                                ${p.projectName || p.nameOfUserAgency || 'Untitled'}
+                            </a>
+                        </h3>
+                        <p class="article-summary" style="font-size:.8rem;color:var(--text-muted)">
+                            ${p.nameOfUserAgency || ''} &middot; ${p.sector || ''} &middot; Submitted: ${p.dateOfSubmission ? p.dateOfSubmission.slice(0, 10) : 'N/A'}
+                        </p>
+                        <div class="article-tags">
+                            <span class="tag">${p.proposalNo || ''}</span>
+                            ${(p.certificateUrl || p.certificate_url) ? `<a href="${p.certificateUrl || p.certificate_url}" target="_blank" class="tag" style="background:var(--green-dim);color:var(--green);text-decoration:none">Certificate PDF</a>` : ''}
+                        </div>
+                    </div>
+                </article>
+            `).join('');
+        }
+    } catch(e) { toast('Parivesh search failed: ' + e.message, 'error'); }
+    btn.disabled = false; btn.textContent = 'Search Parivesh';
 });
 
 // ── Init ───────────────────────────────────────────────────────────

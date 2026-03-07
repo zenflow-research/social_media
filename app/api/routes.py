@@ -377,3 +377,192 @@ async def trigger_pib_backfill(
 async def backfill_status():
     """Check backfill progress."""
     return {"running": _backfill_status["running"], "progress": _backfill_status["progress"]}
+
+
+# ── Parivesh Endpoints ────────────────────────────────────────────
+
+@router.get("/api/parivesh/proposals")
+async def list_parivesh_proposals(
+    symbol: str = "",
+    status: str = "",
+    clearance_type: str = "",
+    q: str = "",
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+):
+    db = get_db()
+    query_filter: dict = {}
+
+    if symbol:
+        query_filter["$or"] = [
+            {"nse_symbol": symbol.upper()},
+            {"matched_symbols": symbol.upper()},
+        ]
+    if status:
+        query_filter["proposal_status"] = {"$regex": status, "$options": "i"}
+    if clearance_type:
+        query_filter["clearance_type"] = {"$regex": clearance_type, "$options": "i"}
+    if q:
+        query_filter["$text"] = {"$search": q}
+
+    skip = (page - 1) * per_page
+    total = await db.parivesh_proposals.count_documents(query_filter)
+    cursor = (
+        db.parivesh_proposals.find(query_filter, {"_id": 0})
+        .sort("scraped_at", -1)
+        .skip(skip)
+        .limit(per_page)
+    )
+    proposals = await cursor.to_list(length=per_page)
+
+    return {"total": total, "page": page, "per_page": per_page, "proposals": proposals}
+
+
+@router.get("/api/parivesh/proposals/{proposal_no:path}")
+async def get_parivesh_proposal(proposal_no: str):
+    db = get_db()
+    proposal = await db.parivesh_proposals.find_one(
+        {"proposal_no": proposal_no}, {"_id": 0}
+    )
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+
+    docs = await db.parivesh_documents.find(
+        {"proposal_no": proposal_no}, {"_id": 0}
+    ).to_list(length=100)
+
+    return {"proposal": proposal, "documents": docs}
+
+
+@router.get("/api/parivesh/company/{symbol}")
+async def get_parivesh_by_company(
+    symbol: str,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+):
+    """Get all Parivesh proposals for a company by NSE symbol."""
+    db = get_db()
+    symbol_upper = symbol.upper()
+    query_filter = {
+        "$or": [
+            {"nse_symbol": symbol_upper},
+            {"matched_symbols": symbol_upper},
+        ]
+    }
+
+    skip = (page - 1) * per_page
+    total = await db.parivesh_proposals.count_documents(query_filter)
+    cursor = (
+        db.parivesh_proposals.find(query_filter, {"_id": 0})
+        .sort("scraped_at", -1)
+        .skip(skip)
+        .limit(per_page)
+    )
+    proposals = await cursor.to_list(length=per_page)
+
+    return {"symbol": symbol_upper, "total": total, "page": page, "per_page": per_page, "proposals": proposals}
+
+
+@router.get("/api/parivesh/stats")
+async def parivesh_stats():
+    """Parivesh collection statistics."""
+    db = get_db()
+    total_proposals = await db.parivesh_proposals.count_documents({})
+    total_documents = await db.parivesh_documents.count_documents({})
+    docs_pending = await db.parivesh_proposals.count_documents(
+        {"documents_fetched": {"$ne": True}}
+    )
+
+    # Companies searched
+    meta = await db.parivesh_meta.find_one({"_id": "parivesh_searched_companies"})
+    companies_searched = len(meta.get("symbols", [])) if meta else 0
+
+    # By clearance type
+    pipeline_ct = [
+        {"$group": {"_id": "$clearance_type", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+    ]
+    by_clearance = {
+        doc["_id"]: doc["count"]
+        async for doc in db.parivesh_proposals.aggregate(pipeline_ct)
+        if doc["_id"]
+    }
+
+    # By status
+    pipeline_status = [
+        {"$group": {"_id": "$proposal_status", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 20},
+    ]
+    by_status = {
+        doc["_id"]: doc["count"]
+        async for doc in db.parivesh_proposals.aggregate(pipeline_status)
+        if doc["_id"]
+    }
+
+    # Top companies by proposals
+    pipeline_companies = [
+        {"$unwind": "$matched_symbols"},
+        {"$group": {"_id": "$matched_symbols", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 20},
+    ]
+    top_companies = {
+        doc["_id"]: doc["count"]
+        async for doc in db.parivesh_proposals.aggregate(pipeline_companies)
+        if doc["_id"]
+    }
+
+    return {
+        "total_proposals": total_proposals,
+        "total_documents": total_documents,
+        "documents_pending": docs_pending,
+        "companies_searched": companies_searched,
+        "by_clearance_type": by_clearance,
+        "by_status": by_status,
+        "top_companies": top_companies,
+    }
+
+
+@router.post("/api/parivesh/scrape")
+async def trigger_parivesh_scrape(
+    batch_size: int = Query(50, ge=1, le=500),
+):
+    """Search Parivesh for Nifty 500 companies (batch_size at a time)."""
+    from app.scrapers.parivesh import PariveshScraper
+    scraper = PariveshScraper()
+    result = await scraper.scrape_all(batch_size=batch_size)
+    return result
+
+
+@router.post("/api/parivesh/documents")
+async def trigger_parivesh_documents(
+    limit: int = Query(50, ge=1, le=200),
+):
+    """Fetch documents for proposals that haven't had docs fetched yet."""
+    from app.scrapers.parivesh import PariveshScraper
+    scraper = PariveshScraper()
+    result = await scraper.fetch_pending_documents(limit=limit)
+    return result
+
+
+@router.post("/api/parivesh/search")
+async def parivesh_search_company(
+    company: str = Query(..., description="Company name to search on Parivesh"),
+):
+    """Search Parivesh for a specific company name (ad-hoc, doesn't save)."""
+    import httpx
+    from app.scrapers.parivesh import BROWSER_HEADERS, SEARCH_URL, REQUEST_TIMEOUT
+
+    async with httpx.AsyncClient(headers=BROWSER_HEADERS) as client:
+        try:
+            resp = await client.get(
+                SEARCH_URL,
+                params={"text": company},
+                timeout=REQUEST_TIMEOUT,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            return {"query": company, "count": len(data) if isinstance(data, list) else 0, "results": data}
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Parivesh API error: {str(e)}")

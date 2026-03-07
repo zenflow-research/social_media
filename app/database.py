@@ -43,6 +43,26 @@ async def connect_db() -> None:
     await _db.pib_company_links.create_index("symbol")
     await _db.pib_company_links.create_index("published_at")
 
+    # Parivesh collections
+    await _db.parivesh_proposals.create_index("proposal_no", unique=True)
+    await _db.parivesh_proposals.create_index("nse_symbol")
+    await _db.parivesh_proposals.create_index("matched_symbols")
+    await _db.parivesh_proposals.create_index("proposal_status")
+    await _db.parivesh_proposals.create_index("clearance_type")
+    await _db.parivesh_proposals.create_index("documents_fetched")
+    await _db.parivesh_proposals.create_index("analyzed")
+    await _db.parivesh_proposals.create_index(
+        [("project_name", "text"), ("company_name", "text")],
+        name="parivesh_text_search",
+        default_language="english",
+    )
+
+    await _db.parivesh_documents.create_index(
+        [("proposal_no", 1), ("doc_uuid", 1)], unique=True
+    )
+    await _db.parivesh_documents.create_index("proposal_no")
+    await _db.parivesh_documents.create_index("doc_type")
+
     logger.info("Connected to MongoDB: %s", settings.mongo_db)
 
 

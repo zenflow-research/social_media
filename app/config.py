@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     scrape_interval_pib: int = 60  # PIB: every 60 min
     pib_analyze_interval: int = 120  # Run LLM analysis every 2 hours
     pib_analyze_batch_size: int = 20  # Max releases to analyze per batch
+    scrape_interval_parivesh: int = 0  # Parivesh: disabled by default (run manually first)
+    parivesh_batch_size: int = 50  # Companies to search per scheduled run
 
     keywords: str = "nifty,sensex,rbi,fed,inflation,earnings,ipo,stock,market,crypto,bitcoin,gold,rupee,dollar,gdp,budget,sebi,mutual fund,etf,dividend"
     rss_feeds: str = "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms,https://www.livemint.com/rss/markets"

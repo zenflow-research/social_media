@@ -27,6 +27,16 @@ async def _run_pib_scraper() -> None:
     logger.info("Scheduled PIB scraper: saved %d releases", count)
 
 
+async def _run_parivesh_scraper() -> None:
+    from app.scrapers.parivesh import PariveshScraper
+    scraper = PariveshScraper()
+    result = await scraper.scrape_all(batch_size=settings.parivesh_batch_size)
+    logger.info(
+        "Scheduled Parivesh scraper: saved %d proposals from %d companies",
+        result["total_saved"], result["companies_searched"],
+    )
+
+
 async def _run_pib_analyzer() -> None:
     from app.services.pib_analyzer import analyze_pending
     results = await analyze_pending(limit=settings.pib_analyze_batch_size)
@@ -71,6 +81,17 @@ def start_scheduler() -> None:
             replace_existing=True,
         )
         logger.info("Scheduled PIB scraper every %d min", settings.scrape_interval_pib)
+
+    # Parivesh scraper
+    if settings.scrape_interval_parivesh > 0:
+        scheduler.add_job(
+            _run_parivesh_scraper,
+            "interval",
+            minutes=settings.scrape_interval_parivesh,
+            id="scrape_parivesh",
+            replace_existing=True,
+        )
+        logger.info("Scheduled Parivesh scraper every %d min", settings.scrape_interval_parivesh)
 
     # PIB LLM analyzer
     if settings.pib_analyze_interval > 0:
