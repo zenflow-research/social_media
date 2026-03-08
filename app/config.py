@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     scrape_interval_rss: int = 20
     scrape_interval_linkedin: int = 0  # 0 = disabled
     scrape_interval_substack: int = 30
+    scrape_interval_et: int = 30  # Economic Times: every 30 min
     scrape_interval_pib: int = 60  # PIB: every 60 min
     pib_analyze_interval: int = 120  # Run LLM analysis every 2 hours
     pib_analyze_batch_size: int = 20  # Max releases to analyze per batch

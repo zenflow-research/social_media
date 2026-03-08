@@ -105,6 +105,117 @@ async def trigger_scrape(source: str):
     return {"source": source, "saved": count, "timestamp": datetime.utcnow().isoformat()}
 
 
+# ── Economic Times Endpoints ───────────────────────────────────────
+
+@router.get("/api/et/articles")
+async def list_et_articles(
+    category: str = "",
+    sub_category: str = "",
+    tag: str = "",
+    q: str = "",
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+):
+    """List Economic Times articles with filters."""
+    db = get_db()
+    query_filter: dict = {}
+
+    if category:
+        query_filter["category"] = category
+    if sub_category:
+        query_filter["sub_category"] = sub_category
+    if tag:
+        query_filter["tags"] = tag
+    if q:
+        query_filter["$or"] = [
+            {"title": {"$regex": q, "$options": "i"}},
+            {"summary": {"$regex": q, "$options": "i"}},
+        ]
+
+    skip = (page - 1) * per_page
+    total = await db.et_articles.count_documents(query_filter)
+    cursor = (
+        db.et_articles.find(query_filter, {"_id": 0})
+        .sort("scraped_at", -1)
+        .skip(skip)
+        .limit(per_page)
+    )
+    articles = await cursor.to_list(length=per_page)
+
+    return {"total": total, "page": page, "per_page": per_page, "articles": articles}
+
+
+@router.get("/api/et/stats")
+async def et_stats():
+    """Economic Times collection statistics."""
+    db = get_db()
+    total = await db.et_articles.count_documents({})
+
+    # By category
+    pipeline_cat = [
+        {"$group": {"_id": "$category", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+    ]
+    by_category = {
+        doc["_id"]: doc["count"]
+        async for doc in db.et_articles.aggregate(pipeline_cat)
+        if doc["_id"]
+    }
+
+    # By sub_category (only non-empty)
+    pipeline_sub = [
+        {"$match": {"sub_category": {"$ne": ""}}},
+        {"$group": {"_id": {"cat": "$category", "sub": "$sub_category"}, "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 30},
+    ]
+    by_sub_category = {
+        f"{doc['_id']['cat']}/{doc['_id']['sub']}": doc["count"]
+        async for doc in db.et_articles.aggregate(pipeline_sub)
+    }
+
+    # Top tags
+    pipeline_tags = [
+        {"$unwind": "$tags"},
+        {"$group": {"_id": "$tags", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 20},
+    ]
+    top_tags = {
+        doc["_id"]: doc["count"]
+        async for doc in db.et_articles.aggregate(pipeline_tags)
+        if doc["_id"]
+    }
+
+    # Latest scrape
+    latest = await db.et_articles.find_one(sort=[("scraped_at", -1)])
+    last_scraped = latest["scraped_at"] if latest else None
+
+    return {
+        "total_articles": total,
+        "by_category": by_category,
+        "by_sub_category": by_sub_category,
+        "top_tags": top_tags,
+        "last_scraped": last_scraped,
+    }
+
+
+@router.post("/api/et/scrape")
+async def trigger_et_scrape():
+    """Manually trigger Economic Times scraping."""
+    from app.scrapers.economic_times import EconomicTimesScraper
+    scraper = EconomicTimesScraper()
+    result = await scraper.scrape()
+    return {
+        "source": "economic_times",
+        "saved": result["saved"],
+        "fetched": result["fetched"],
+        "sections": result["sections"],
+        "errors": result["errors"],
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+
+
 # ── PIB Endpoints ──────────────────────────────────────────────────
 
 @router.get("/api/pib/releases")

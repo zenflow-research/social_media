@@ -24,6 +24,10 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
             <span>Analytics</span>
         </a>
+        <a href="#" class="nav-item" data-view="et">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>
+            <span>ET News</span>
+        </a>
         <a href="#" class="nav-item" data-view="pib">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/></svg>
             <span>Govt News</span>
@@ -133,6 +137,72 @@
                 <div class="timeline" id="timeline"></div>
             </div>
         </div>
+    </section>
+
+    <!-- ═══════ ET NEWS VIEW ═══════ -->
+    <section class="view" id="viewEt">
+        <h2 class="view-title">Economic Times</h2>
+        <p class="view-subtitle">Latest news from economictimes.indiatimes.com — markets, economy, industry, tech & more.</p>
+
+        <!-- ET Stats ribbon -->
+        <div class="stats-ribbon" id="etStatsRibbon">
+            <div class="stat-card">
+                <div class="stat-value" id="etTotal">--</div>
+                <div class="stat-label">Total Articles</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="etCategories">--</div>
+                <div class="stat-label">Categories</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="etTags">--</div>
+                <div class="stat-label">Tags Matched</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="etLastScraped">--</div>
+                <div class="stat-label">Last Scraped</div>
+            </div>
+        </div>
+
+        <!-- ET Filters -->
+        <div class="filter-bar pib-filter-bar">
+            <div class="search-box" style="max-width:260px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                <input type="text" id="etSearchInput" placeholder="Search ET articles...">
+            </div>
+            <div class="filter-chips" id="etCategoryChips">
+                <button class="chip active" data-etcat="">All</button>
+            </div>
+            <select class="filter-select" id="etSubCatFilter">
+                <option value="">All Sub-categories</option>
+            </select>
+            <select class="filter-select" id="etTagFilter">
+                <option value="">All Tags</option>
+            </select>
+            <button class="btn btn-sm btn-accent" id="etScrapeBtn">Scrape Now</button>
+        </div>
+
+        <!-- ET Analytics -->
+        <div class="analytics-grid pib-analytics" style="margin-bottom:1.25rem">
+            <div class="analytics-card">
+                <h3>By Category</h3>
+                <div class="bar-chart" id="etCategoryChart"></div>
+            </div>
+            <div class="analytics-card">
+                <h3>By Sub-category (top 15)</h3>
+                <div class="bar-chart" id="etSubCatChart"></div>
+            </div>
+            <div class="analytics-card">
+                <h3>Top Tags</h3>
+                <div class="tag-cloud" id="etTagCloud"></div>
+            </div>
+        </div>
+
+        <!-- ET Results -->
+        <div class="article-list" id="etResultsList">
+            <div class="empty-state"><p>Click "Scrape Now" to fetch Economic Times articles.</p></div>
+        </div>
+        <div class="pagination" id="etPagination"></div>
     </section>
 
     <!-- ═══════ PIB / GOVT NEWS VIEW ═══════ -->
@@ -335,6 +405,18 @@
                 </div>
                 <button class="btn btn-accent scrape-btn">Scrape</button>
                 <div class="scrape-result"></div>
+            </div>
+
+            <div class="scrape-card" id="etScrapeCard">
+                <div class="scrape-icon" style="--clr: #1a73e8">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>
+                </div>
+                <div class="scrape-info">
+                    <h3>Economic Times</h3>
+                    <p>Markets, economy, industry & tech news</p>
+                </div>
+                <button class="btn btn-accent" id="etScrapeCardBtn">Scrape</button>
+                <div class="scrape-result" id="etScrapeCardResult"></div>
             </div>
 
             <div class="scrape-card" data-source="linkedin">
@@ -632,6 +714,24 @@ document.querySelectorAll('.scrape-btn').forEach(btn => {
     });
 });
 
+// ── ET scrape card (uses dedicated endpoint, not BaseScraper) ─────
+document.getElementById('etScrapeCardBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('etScrapeCardBtn');
+    const result = document.getElementById('etScrapeCardResult');
+    btn.disabled = true; btn.textContent = 'Scraping...';
+    result.textContent = '';
+    try {
+        const d = await apiPost('/api/et/scrape');
+        result.innerHTML = `<span class="result-ok">+${d.saved} articles from ${d.sections} sections</span>`;
+        toast(`Economic Times: ${d.saved} articles saved`, 'success');
+        loadStats();
+    } catch (e) {
+        result.innerHTML = '<span class="result-error">Network error</span>';
+        toast('ET scrape failed', 'error');
+    }
+    btn.disabled = false; btn.textContent = 'Scrape';
+});
+
 // ── View switching ─────────────────────────────────────────────────
 document.querySelectorAll('.nav-item').forEach(link => {
     link.addEventListener('click', e => {
@@ -645,6 +745,7 @@ document.querySelectorAll('.nav-item').forEach(link => {
         document.getElementById(`view${view.charAt(0).toUpperCase() + view.slice(1)}`).classList.add('active');
 
         if (view === 'stats') renderAnalytics();
+        if (view === 'et') { loadEtStats(); loadEtResults(); }
         if (view === 'pib') { loadPibStats(); loadPibResults(); }
         if (view === 'parivesh') { loadPariveshStats(); loadPariveshResults(); }
 
@@ -709,6 +810,195 @@ async function checkStatus() {
         document.getElementById('statusText').textContent = 'Disconnected';
     }
 }
+
+// ══════════════════════════════════════════════════════════════════
+// Economic Times
+// ══════════════════════════════════════════════════════════════════
+const etState = { page: 1, perPage: 20, category: '', subCategory: '', tag: '', q: '' };
+
+async function loadEtStats() {
+    const s = await api('/api/et/stats');
+    document.getElementById('etTotal').textContent = (s.total_articles || 0).toLocaleString();
+    document.getElementById('etCategories').textContent = Object.keys(s.by_category || {}).length;
+    document.getElementById('etTags').textContent = Object.keys(s.top_tags || {}).length;
+
+    if (s.last_scraped) {
+        const d = new Date(s.last_scraped);
+        document.getElementById('etLastScraped').textContent = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // Category chips
+    const chips = document.getElementById('etCategoryChips');
+    const cats = Object.entries(s.by_category || {}).sort((a, b) => b[1] - a[1]);
+    chips.innerHTML = `<button class="chip ${etState.category === '' ? 'active' : ''}" data-etcat="">All (${s.total_articles || 0})</button>` +
+        cats.map(([c, n]) => `<button class="chip ${etState.category === c ? 'active' : ''}" data-etcat="${c}">${c} (${n})</button>`).join('');
+
+    chips.querySelectorAll('.chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            etState.category = chip.dataset.etcat;
+            etState.subCategory = '';
+            document.getElementById('etSubCatFilter').value = '';
+            etState.page = 1;
+            chips.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            loadEtResults();
+        });
+    });
+
+    // Sub-category dropdown
+    const subSel = document.getElementById('etSubCatFilter');
+    const subs = Object.entries(s.by_sub_category || {}).sort((a, b) => b[1] - a[1]);
+    subSel.innerHTML = '<option value="">All Sub-categories</option>' +
+        subs.map(([sc, n]) => {
+            const sub = sc.split('/')[1] || sc;
+            return `<option value="${sub}">${sc} (${n})</option>`;
+        }).join('');
+
+    // Tag dropdown
+    const tagSel = document.getElementById('etTagFilter');
+    const tags = Object.entries(s.top_tags || {}).sort((a, b) => b[1] - a[1]);
+    tagSel.innerHTML = '<option value="">All Tags</option>' +
+        tags.map(([t, c]) => `<option value="${t}">${t} (${c})</option>`).join('');
+
+    // Category bar chart
+    const chart = document.getElementById('etCategoryChart');
+    const maxC = cats.length ? cats[0][1] : 1;
+    chart.innerHTML = cats.map(([c, n]) => `
+        <div class="bar-row" style="cursor:pointer" data-etcatbar="${c}">
+            <span class="bar-label" style="width:90px">${c}</span>
+            <div class="bar-track"><div class="bar-fill" style="width:${(n / maxC * 100).toFixed(1)}%"></div></div>
+            <span class="bar-value">${n}</span>
+        </div>
+    `).join('') || '<p class="muted">No data yet</p>';
+
+    chart.querySelectorAll('[data-etcatbar]').forEach(el => {
+        el.addEventListener('click', () => {
+            etState.category = el.dataset.etcatbar;
+            etState.page = 1;
+            chips.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+            const match = chips.querySelector(`[data-etcat="${etState.category}"]`);
+            if (match) match.classList.add('active');
+            loadEtResults();
+        });
+    });
+
+    // Sub-category bar chart
+    const subChart = document.getElementById('etSubCatChart');
+    const topSubs = subs.slice(0, 15);
+    const maxS = topSubs.length ? topSubs[0][1] : 1;
+    subChart.innerHTML = topSubs.map(([sc, n]) => `
+        <div class="bar-row">
+            <span class="bar-label" style="width:120px;font-size:.7rem">${sc}</span>
+            <div class="bar-track"><div class="bar-fill" style="width:${(n / maxS * 100).toFixed(1)}%"></div></div>
+            <span class="bar-value">${n}</span>
+        </div>
+    `).join('') || '<p class="muted">No data yet</p>';
+
+    // Tag cloud
+    const cloud = document.getElementById('etTagCloud');
+    const maxT = tags.length ? tags[0][1] : 1;
+    cloud.innerHTML = tags.map(([t, c]) => {
+        const size = 0.7 + (c / maxT) * 0.8;
+        const opacity = 0.4 + (c / maxT) * 0.6;
+        return `<span class="cloud-tag" style="font-size:${size}rem;opacity:${opacity}">${t} <sup>${c}</sup></span>`;
+    }).join('') || '<p class="muted">No tags yet</p>';
+}
+
+async function loadEtResults() {
+    const params = new URLSearchParams();
+    if (etState.category) params.set('category', etState.category);
+    if (etState.subCategory) params.set('sub_category', etState.subCategory);
+    if (etState.tag) params.set('tag', etState.tag);
+    if (etState.q) params.set('q', etState.q);
+    params.set('page', etState.page);
+    params.set('per_page', etState.perPage);
+
+    const data = await api(`/api/et/articles?${params}`);
+    renderEtResults(data);
+}
+
+function renderEtResults(data) {
+    const container = document.getElementById('etResultsList');
+    const articles = data.articles || [];
+
+    if (!articles.length) {
+        container.innerHTML = '<div class="empty-state"><h3>No articles found</h3><p>Try scraping or adjusting filters.</p></div>';
+        document.getElementById('etPagination').innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = articles.map(a => {
+        const date = a.published_at ? new Date(a.published_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+        const scraped = new Date(a.scraped_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+        const summary = (a.summary || '').slice(0, 250);
+        const tags = (a.tags || []).slice(0, 6);
+        const cat = a.category || '';
+        const sub = a.sub_category || '';
+
+        return `
+        <article class="article-card">
+            ${a.image_url ? `<div class="article-thumb"><img src="${a.image_url}" alt="" loading="lazy" onerror="this.parentElement.remove()"></div>` : ''}
+            <div class="article-body">
+                <div class="article-meta">
+                    <span class="source-badge source-economic_times">ET</span>
+                    ${cat ? `<span class="source-badge" style="background:var(--accent-dim);color:var(--accent)">${cat}</span>` : ''}
+                    ${sub ? `<span class="source-badge" style="background:var(--surface-hi);color:var(--text-muted)">${sub}</span>` : ''}
+                    ${date ? `<span class="meta-date">${date}</span>` : ''}
+                    <span class="meta-scraped">Scraped ${scraped}</span>
+                </div>
+                <h3 class="article-title">
+                    <a href="${a.url}" target="_blank" rel="noopener">${a.title || 'Untitled'}</a>
+                </h3>
+                ${summary ? `<p class="article-summary">${summary}${summary.length >= 250 ? '...' : ''}</p>` : ''}
+                ${tags.length ? `<div class="article-tags">${tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>` : ''}
+            </div>
+        </article>`;
+    }).join('');
+
+    // Pagination
+    const totalPages = Math.max(1, Math.ceil(data.total / etState.perPage));
+    const pgn = document.getElementById('etPagination');
+    if (totalPages <= 1) { pgn.innerHTML = ''; return; }
+    let html = '';
+    if (etState.page > 1) html += '<button class="page-btn" data-etp="' + (etState.page - 1) + '">&laquo;</button>';
+    for (let p = 1; p <= totalPages; p++) {
+        if (p === etState.page) html += '<button class="page-btn current">' + p + '</button>';
+        else if (p <= 2 || p > totalPages - 2 || Math.abs(p - etState.page) <= 2) html += '<button class="page-btn" data-etp="' + p + '">' + p + '</button>';
+        else if (p === 3 || p === totalPages - 2) html += '<span class="page-dots">...</span>';
+    }
+    if (etState.page < totalPages) html += '<button class="page-btn" data-etp="' + (etState.page + 1) + '">&raquo;</button>';
+    pgn.innerHTML = html;
+    pgn.querySelectorAll('[data-etp]').forEach(b => b.addEventListener('click', () => { etState.page = +b.dataset.etp; loadEtResults(); }));
+}
+
+// ET filter events
+let etSearchTimeout;
+document.getElementById('etSearchInput').addEventListener('input', e => {
+    clearTimeout(etSearchTimeout);
+    etSearchTimeout = setTimeout(() => { etState.q = e.target.value.trim(); etState.page = 1; loadEtResults(); }, 400);
+});
+document.getElementById('etSubCatFilter').addEventListener('change', e => {
+    etState.subCategory = e.target.value; etState.page = 1; loadEtResults();
+});
+document.getElementById('etTagFilter').addEventListener('change', e => {
+    etState.tag = e.target.value; etState.page = 1; loadEtResults();
+});
+
+// ET Scrape button (in ET view)
+document.getElementById('etScrapeBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('etScrapeBtn');
+    btn.disabled = true; btn.textContent = 'Scraping...';
+    try {
+        const d = await apiPost('/api/et/scrape');
+        if (d.errors && d.errors.length) {
+            toast(`ET: ${d.saved} saved, ${d.errors.length} section errors`, 'error');
+        } else {
+            toast(`Economic Times: ${d.saved} articles saved from ${d.sections} sections`, 'success');
+        }
+        loadEtStats(); loadEtResults();
+    } catch (e) { toast('ET scrape failed', 'error'); }
+    btn.disabled = false; btn.textContent = 'Scrape Now';
+});
 
 // ══════════════════════════════════════════════════════════════════
 // PIB / Government News

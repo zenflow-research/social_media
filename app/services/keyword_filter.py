@@ -8,3 +8,10 @@ def tag_article(article: Article) -> None:
     matched = [kw for kw in settings.keyword_list if kw in text]
     # Merge with any existing tags, deduplicate
     article.tags = list(set(article.tags + matched))
+
+
+def tag_et_article(article) -> None:
+    """Add keyword-based tags to an ETArticle."""
+    text = f"{article.title} {article.summary}".lower()
+    matched = [kw for kw in settings.keyword_list if kw in text]
+    article.tags = list(set(article.tags + matched))

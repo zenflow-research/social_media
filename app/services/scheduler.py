@@ -20,6 +20,13 @@ async def _run_scraper(name: str) -> None:
     logger.info("Scheduled %s: saved %d articles", name, count)
 
 
+async def _run_et_scraper() -> None:
+    from app.scrapers.economic_times import EconomicTimesScraper
+    scraper = EconomicTimesScraper()
+    result = await scraper.scrape()
+    logger.info("Scheduled ET scraper: saved %d / %d articles", result["saved"], result["fetched"])
+
+
 async def _run_pib_scraper() -> None:
     from app.scrapers.pib import PIBScraper
     scraper = PIBScraper()
@@ -70,6 +77,17 @@ def start_scheduler() -> None:
             logger.info("Scheduled %s every %d min", source, minutes)
         else:
             logger.info("Skipping %s (interval=0, disabled)", source)
+
+    # Economic Times scraper
+    if settings.scrape_interval_et > 0:
+        scheduler.add_job(
+            _run_et_scraper,
+            "interval",
+            minutes=settings.scrape_interval_et,
+            id="scrape_et",
+            replace_existing=True,
+        )
+        logger.info("Scheduled ET scraper every %d min", settings.scrape_interval_et)
 
     # PIB scraper
     if settings.scrape_interval_pib > 0:

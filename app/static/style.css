@@ -369,6 +369,7 @@ a { color: inherit; text-decoration: none; }
 .source-rss           { background: var(--orange-dim); color: var(--orange); }
 .source-twitter       { background: var(--accent-dim); color: var(--accent); }
 .source-linkedin      { background: rgba(0,119,181,.15); color: #60a5fa; }
+.source-economic_times { background: rgba(26,115,232,.15); color: #60a5fa; }
 .source-unknown       { background: var(--surface-hi); color: var(--text-muted); }
 
 .article-title {

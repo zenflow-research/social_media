@@ -21,6 +21,18 @@ async def connect_db() -> None:
     await _db.articles.create_index("source_name")
     await _db.articles.create_index("tags")
 
+    # ET articles collection
+    await _db.et_articles.create_index("url_hash", unique=True)
+    await _db.et_articles.create_index("scraped_at")
+    await _db.et_articles.create_index("category")
+    await _db.et_articles.create_index("sub_category")
+    await _db.et_articles.create_index("tags")
+    await _db.et_articles.create_index(
+        [("title", "text"), ("summary", "text")],
+        name="et_text_search",
+        default_language="english",
+    )
+
     # PIB collections
     await _db.pib_releases.create_index("prid", unique=True)
     await _db.pib_releases.create_index("published_at")

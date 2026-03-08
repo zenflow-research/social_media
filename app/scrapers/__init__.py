@@ -12,5 +12,8 @@ SCRAPERS = {
     "substack": SubstackScraper,
 }
 
+# ET scraper has its own collection (et_articles) and doesn't follow BaseScraper.
+# It's registered separately in the scheduler, like PIB and Parivesh.
+
 # PIB scraper is not in SCRAPERS because it doesn't follow BaseScraper pattern.
 # It's registered separately in the scheduler.
