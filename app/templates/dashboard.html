@@ -159,6 +159,10 @@
                 <div class="stat-label">Tags Matched</div>
             </div>
             <div class="stat-card">
+                <div class="stat-value" id="etTextFetched">--</div>
+                <div class="stat-label">Texts Fetched</div>
+            </div>
+            <div class="stat-card">
                 <div class="stat-value" id="etLastScraped">--</div>
                 <div class="stat-label">Last Scraped</div>
             </div>
@@ -180,6 +184,7 @@
                 <option value="">All Tags</option>
             </select>
             <button class="btn btn-sm btn-accent" id="etScrapeBtn">Scrape Now</button>
+            <button class="btn btn-sm btn-outline" id="etFetchTextsBtn">Fetch Texts</button>
         </div>
 
         <!-- ET Analytics -->
@@ -821,6 +826,7 @@ async function loadEtStats() {
     document.getElementById('etTotal').textContent = (s.total_articles || 0).toLocaleString();
     document.getElementById('etCategories').textContent = Object.keys(s.by_category || {}).length;
     document.getElementById('etTags').textContent = Object.keys(s.top_tags || {}).length;
+    document.getElementById('etTextFetched').textContent = `${s.text_fetched || 0} / ${s.total_articles || 0}`;
 
     if (s.last_scraped) {
         const d = new Date(s.last_scraped);
@@ -934,26 +940,60 @@ function renderEtResults(data) {
         const tags = (a.tags || []).slice(0, 6);
         const cat = a.category || '';
         const sub = a.sub_category || '';
+        const hasText = a.text_fetched && a.full_text;
 
         return `
-        <article class="article-card">
+        <article class="article-card" data-ethash="${a.url_hash}" style="cursor:pointer">
             ${a.image_url ? `<div class="article-thumb"><img src="${a.image_url}" alt="" loading="lazy" onerror="this.parentElement.remove()"></div>` : ''}
             <div class="article-body">
                 <div class="article-meta">
                     <span class="source-badge source-economic_times">ET</span>
                     ${cat ? `<span class="source-badge" style="background:var(--accent-dim);color:var(--accent)">${cat}</span>` : ''}
                     ${sub ? `<span class="source-badge" style="background:var(--surface-hi);color:var(--text-muted)">${sub}</span>` : ''}
+                    ${hasText ? '<span class="source-badge" style="background:var(--green-dim);color:var(--green)">full text</span>' : ''}
                     ${date ? `<span class="meta-date">${date}</span>` : ''}
+                    ${a.author ? `<span class="meta-date">${a.author}</span>` : ''}
                     <span class="meta-scraped">Scraped ${scraped}</span>
                 </div>
                 <h3 class="article-title">
-                    <a href="${a.url}" target="_blank" rel="noopener">${a.title || 'Untitled'}</a>
+                    <a href="${a.url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${a.title || 'Untitled'}</a>
                 </h3>
                 ${summary ? `<p class="article-summary">${summary}${summary.length >= 250 ? '...' : ''}</p>` : ''}
                 ${tags.length ? `<div class="article-tags">${tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>` : ''}
             </div>
         </article>`;
     }).join('');
+
+    // Click card to open full text in modal
+    container.querySelectorAll('[data-ethash]').forEach(card => {
+        card.addEventListener('click', async () => {
+            const hash = card.dataset.ethash;
+            const d = await api(`/api/et/articles/${hash}`);
+            const modal = document.getElementById('modalOverlay');
+            const body = document.getElementById('modalBody');
+            const date = d.published_at ? new Date(d.published_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+            body.innerHTML = `
+                <div style="margin-bottom:.5rem">
+                    <span class="source-badge source-economic_times">ET</span>
+                    ${d.category ? `<span class="source-badge" style="background:var(--accent-dim);color:var(--accent)">${d.category}</span>` : ''}
+                    ${d.sub_category ? `<span class="source-badge" style="background:var(--surface-hi);color:var(--text-muted)">${d.sub_category}</span>` : ''}
+                    ${date ? `<span class="meta-date">${date}</span>` : ''}
+                    ${d.author ? `<span class="meta-date">${d.author}</span>` : ''}
+                </div>
+                <h2 style="margin-bottom:.5rem">${d.title || 'Untitled'}</h2>
+                ${d.image_url ? `<img src="${d.image_url}" style="max-width:100%;border-radius:6px;margin-bottom:.75rem" alt="">` : ''}
+                ${d.full_text
+                    ? `<div style="white-space:pre-wrap;line-height:1.7;font-size:.9rem">${d.full_text}</div>`
+                    : `<p style="color:var(--text-muted);font-style:italic">Full text not fetched yet. Click "Fetch Texts" to scrape article content.</p>
+                       ${d.summary ? `<p style="margin-top:.5rem">${d.summary}</p>` : ''}`
+                }
+                <div style="margin-top:1rem">
+                    <a href="${d.url}" target="_blank" class="btn btn-sm btn-accent" style="text-decoration:none">Read on ET &rarr;</a>
+                </div>
+            `;
+            modal.classList.add('active');
+        });
+    });
 
     // Pagination
     const totalPages = Math.max(1, Math.ceil(data.total / etState.perPage));
@@ -982,6 +1022,18 @@ document.getElementById('etSubCatFilter').addEventListener('change', e => {
 });
 document.getElementById('etTagFilter').addEventListener('change', e => {
     etState.tag = e.target.value; etState.page = 1; loadEtResults();
+});
+
+// ET Fetch Texts button
+document.getElementById('etFetchTextsBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('etFetchTextsBtn');
+    btn.disabled = true; btn.textContent = 'Fetching...';
+    try {
+        const d = await apiPost('/api/et/fetch-texts?limit=100');
+        toast(`ET: ${d.fetched} articles text fetched, ${d.failed} failed, ${d.total_pending} pending`, d.failed ? 'error' : 'success');
+        loadEtStats(); loadEtResults();
+    } catch (e) { toast('ET text fetch failed', 'error'); }
+    btn.disabled = false; btn.textContent = 'Fetch Texts';
 });
 
 // ET Scrape button (in ET view)

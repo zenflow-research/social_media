@@ -191,8 +191,14 @@ async def et_stats():
     latest = await db.et_articles.find_one(sort=[("scraped_at", -1)])
     last_scraped = latest["scraped_at"] if latest else None
 
+    # Text fetch stats
+    text_fetched = await db.et_articles.count_documents({"text_fetched": True})
+    text_pending = total - text_fetched
+
     return {
         "total_articles": total,
+        "text_fetched": text_fetched,
+        "text_pending": text_pending,
         "by_category": by_category,
         "by_sub_category": by_sub_category,
         "top_tags": top_tags,
@@ -214,6 +220,27 @@ async def trigger_et_scrape():
         "errors": result["errors"],
         "timestamp": datetime.utcnow().isoformat(),
     }
+
+
+@router.post("/api/et/fetch-texts")
+async def trigger_et_text_fetch(
+    limit: int = Query(50, ge=1, le=500),
+):
+    """Fetch full article text for ET articles that don't have it yet."""
+    from app.scrapers.economic_times import EconomicTimesScraper
+    scraper = EconomicTimesScraper()
+    result = await scraper.fetch_article_texts(limit=limit)
+    return result
+
+
+@router.get("/api/et/articles/{url_hash}")
+async def get_et_article(url_hash: str):
+    """Get a single ET article with full text."""
+    db = get_db()
+    article = await db.et_articles.find_one({"url_hash": url_hash}, {"_id": 0})
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+    return article
 
 
 # ── PIB Endpoints ──────────────────────────────────────────────────

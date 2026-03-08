@@ -1,4 +1,6 @@
+import asyncio
 import hashlib
+import json
 import logging
 from datetime import datetime
 
@@ -253,3 +255,113 @@ class EconomicTimesScraper:
             image_url=image_url,
             published_at=published_at,
         )
+
+    # ── Full-text fetching ─────────────────────────────────────────
+
+    async def fetch_article_texts(self, limit: int = 50) -> dict:
+        """Fetch full article text for articles that don't have it yet."""
+        db = get_db()
+        cursor = (
+            db.et_articles.find(
+                {"text_fetched": {"$ne": True}},
+                {"_id": 0, "url": 1, "url_hash": 1},
+            )
+            .sort("scraped_at", -1)
+            .limit(limit)
+        )
+        pending = await cursor.to_list(length=limit)
+        if not pending:
+            return {"fetched": 0, "failed": 0, "total_pending": 0}
+
+        total_pending = await db.et_articles.count_documents(
+            {"text_fetched": {"$ne": True}}
+        )
+
+        fetched = 0
+        failed = 0
+
+        async with httpx.AsyncClient(
+            timeout=30, follow_redirects=True, headers=HEADERS
+        ) as client:
+            for doc in pending:
+                try:
+                    result = await self._fetch_single_article(client, doc["url"])
+                    if result:
+                        update: dict = {"text_fetched": True, **result}
+                        await db.et_articles.update_one(
+                            {"url_hash": doc["url_hash"]},
+                            {"$set": update},
+                        )
+                        fetched += 1
+                    else:
+                        # Mark as fetched even if empty to avoid retrying
+                        await db.et_articles.update_one(
+                            {"url_hash": doc["url_hash"]},
+                            {"$set": {"text_fetched": True}},
+                        )
+                        failed += 1
+                except Exception:
+                    logger.exception("ET: error fetching text for %s", doc["url"])
+                    failed += 1
+
+                # Rate limit: 0.5s between requests
+                await asyncio.sleep(0.5)
+
+        logger.info("ET text fetch: %d fetched, %d failed", fetched, failed)
+        return {
+            "fetched": fetched,
+            "failed": failed,
+            "total_pending": total_pending - fetched - failed,
+        }
+
+    async def _fetch_single_article(
+        self, client: httpx.AsyncClient, url: str
+    ) -> dict | None:
+        """Fetch a single article page and extract full text via JSON-LD."""
+        resp = await client.get(url)
+        if resp.status_code != 200:
+            return None
+
+        soup = BeautifulSoup(resp.text, "lxml")
+
+        # Prefer JSON-LD structured data (clean, no HTML noise)
+        for script in soup.select('script[type="application/ld+json"]'):
+            try:
+                data = json.loads(script.string)
+                if isinstance(data, dict) and "articleBody" in data:
+                    result: dict = {"full_text": data["articleBody"]}
+                    if data.get("author"):
+                        author = data["author"]
+                        if isinstance(author, dict):
+                            result["author"] = author.get("name", "")
+                        elif isinstance(author, list) and author:
+                            result["author"] = author[0].get("name", "")
+                    if data.get("description"):
+                        result["summary"] = data["description"]
+                    if data.get("datePublished"):
+                        try:
+                            result["published_at"] = datetime.fromisoformat(
+                                data["datePublished"]
+                            )
+                        except (ValueError, TypeError):
+                            pass
+                    if data.get("image"):
+                        img = data["image"]
+                        if isinstance(img, list):
+                            img = img[0] if img else ""
+                        if isinstance(img, dict):
+                            img = img.get("url", "")
+                        if img:
+                            result["image_url"] = img
+                    return result
+            except (json.JSONDecodeError, TypeError):
+                continue
+
+        # Fallback: extract from artText div
+        art_div = soup.select_one("div.artText")
+        if art_div:
+            text = art_div.get_text(separator="\n", strip=True)
+            if len(text) > 50:
+                return {"full_text": text}
+
+        return None
